@@ -37,7 +37,7 @@ class Presenter:
         self.ui_update_queue.put(
             {"type": "status", "payload": {"text": "Fetching new data from API..."}}
         )
-        threading.Thread(target=self._fetch_job, daemon=True).start()
+        threading.Thread(target=self._fetch_job, args=("manual",), daemon=True).start()
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
@@ -176,9 +176,9 @@ class Presenter:
                 }
             )
         else:
-            self._fetch_job(is_initial=True)
+            self._fetch_job(source="initial", is_initial=True)
 
-    def _fetch_job(self, is_initial=False):
+    def _fetch_job(self, source: str = "manual", is_initial: bool = False):
         """Fetch new data from the API."""
         if is_initial:
             self.ui_update_queue.put(
@@ -188,25 +188,54 @@ class Presenter:
                 }
             )
 
-        new_data = self.model.fetch_and_save_rates()
+        new_data = None
+        if source == "manual":
+            new_data = self.model.fetch_and_save_rates(save_to_db=False)
+            if new_data:
+                self.ui_update_queue.put(
+                    {
+                        "type": "status",
+                        "payload": {
+                            "text": "Manual update successful (not saved to DB).",
+                            "is_error": False,
+                        },
+                    }
+                )
+            else:
+                self.ui_update_queue.put(
+                    {
+                        "type": "status",
+                        "payload": {
+                            "text": "Manual update failed. Check logs.",
+                            "is_error": True,
+                        },
+                    }
+                )
+        elif source == "scheduled" or source == "initial":
+            new_data = self.model.fetch_and_save_rates(save_to_db=True)
+            if new_data:
+                self.ui_update_queue.put(
+                    {
+                        "type": "status",
+                        "payload": {
+                            "text": "API fetch successful and saved to DB.",
+                            "is_error": False,
+                        },
+                    }
+                )
+            else:
+                self.ui_update_queue.put(
+                    {
+                        "type": "status",
+                        "payload": {
+                            "text": "API fetch failed. Check logs.",
+                            "is_error": True,
+                        },
+                    }
+                )
+
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {"text": "API fetch successful."},
-                }
-            )
-        else:
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {
-                        "text": "API fetch failed. Check logs.",
-                        "is_error": True,
-                    },
-                }
-            )
 
     # --- Scheduler Logic ---
 
@@ -228,4 +257,4 @@ class Presenter:
                 "payload": {"text": "Performing scheduled update..."},
             }
         )
-        self._fetch_job()
+        self._fetch_job(source="scheduled")

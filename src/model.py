@@ -151,8 +151,11 @@ class Model:
         logging.info(f"Uncategorized instrument: {instrument} -> Other")
         return "Other"
 
-    def fetch_and_save_rates(self):
+    def fetch_and_save_rates(self, save_to_db: bool = True):
         """Fetch financing rates from the OANDA API and save them to the database.
+
+        Args:
+            save_to_db: Whether to save the fetched data to the database.
 
         Returns:
             dict: The fetched data, or None on failure.
@@ -167,24 +170,25 @@ class Model:
                 logging.error("API response format is unexpected.")
                 return None
 
-            today = datetime.now().strftime("%Y-%m-%d")
-            session = Session()
-            try:
-                existing = session.query(Rate).filter_by(date=today).first()
-                if existing:
-                    existing.raw_data = json.dumps(data)
-                else:
-                    new_rate = Rate(date=today, raw_data=json.dumps(data))
-                    session.add(new_rate)
-                session.commit()
-                logging.info(f"Successfully fetched and saved data for {today}.")
-                return data
-            except Exception as e:
-                session.rollback()
-                logging.error(f"Database error: {e}")
-                return None
-            finally:
-                session.close()
+            if save_to_db:
+                today = datetime.now().strftime("%Y-%m-%d")
+                session = Session()
+                try:
+                    existing = session.query(Rate).filter_by(date=today).first()
+                    if existing:
+                        existing.raw_data = json.dumps(data)  # type: ignore
+                    else:
+                        new_rate = Rate(date=today, raw_data=json.dumps(data))  # type: ignore
+                        session.add(new_rate)
+                    session.commit()
+                    logging.info(f"Successfully fetched and saved data for {today}.")
+                except Exception as e:
+                    session.rollback()
+                    logging.error(f"Database error: {e}")
+                    return None
+                finally:
+                    session.close()
+            return data
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Fetch error: {e}")
