@@ -1,0 +1,30 @@
+# IDE - JetBrains PyCharm
+.idea/
+
+# Environments
+.venv/
+virtual/
+venv/
+ENV/
+env/
+
+# Python cache & compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database files
+*.db
+*.sqlite3
+oanda_rates.db
+
+# Log files
+*.log
+oanda_instrument_log.txt
+
+# Gemini metadata
+GEMINI.md
+
+# OS-generated files
+.DS_Store

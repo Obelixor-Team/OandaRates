@@ -1,0 +1,30 @@
+[project]
+name = "oanda-rates"
+version = "0.1.0"
+description = "A desktop application to fetch, store, and display OANDA financing rates."
+authors = [
+    { name = "skum", email = "your.email@example.com" },
+]
+requires-python = ">=3.11"
+keywords = ["oanda", "financing-rates", "forex", "trading", "desktop-app", "pyqt6"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial",
+]
+dependencies = [
+    "requests",
+    "SQLAlchemy",
+    "schedule",
+    "PyQt6",
+    "matplotlib",
+    "pandas",
+    "pytz",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
