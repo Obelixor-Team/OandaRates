@@ -138,10 +138,56 @@ class Presenter:
             long_rate = float(rate.get("longRate", 0.0)) * 100
             short_rate = float(rate.get("shortRate", 0.0)) * 100
 
+            # Infer currency from instrument name
+            if "/" in instrument:
+                currency = instrument.split("/")[1]
+            elif "_" in instrument and instrument.endswith("USD"):
+                currency = "USD"
+            elif "_" in instrument and instrument.endswith("EUR"):
+                currency = "EUR"
+            elif "_" in instrument and instrument.endswith("GBP"):
+                currency = "GBP"
+            elif "_" in instrument and instrument.endswith("JPY"):
+                currency = "JPY"
+            elif "_" in instrument and instrument.endswith("AUD"):
+                currency = "AUD"
+            elif "_" in instrument and instrument.endswith("CAD"):
+                currency = "CAD"
+            elif "_" in instrument and instrument.endswith("CHF"):
+                currency = "CHF"
+            elif "_" in instrument and instrument.endswith("NZD"):
+                currency = "NZD"
+            elif "_" in instrument and instrument.endswith("SGD"):
+                currency = "SGD"
+            elif "_" in instrument and instrument.endswith("HKD"):
+                currency = "HKD"
+            elif "_" in instrument and instrument.endswith("NOK"):
+                currency = "NOK"
+            elif "_" in instrument and instrument.endswith("SEK"):
+                currency = "SEK"
+            elif "_" in instrument and instrument.endswith("DKK"):
+                currency = "DKK"
+            elif "_" in instrument and instrument.endswith("MXN"):
+                currency = "MXN"
+            elif "_" in instrument and instrument.endswith("ZAR"):
+                currency = "ZAR"
+            elif "_" in instrument and instrument.endswith("TRY"):
+                currency = "TRY"
+            elif "_" in instrument and instrument.endswith("CNH"):
+                currency = "CNH"
+            elif "_" in instrument and instrument.endswith("PLN"):
+                currency = "PLN"
+            elif "_" in instrument and instrument.endswith("CZK"):
+                currency = "CZK"
+            elif "_" in instrument and instrument.endswith("HUF"):
+                currency = "HUF"
+            else:
+                currency = rate.get("currency", "")  # Fallback to API provided currency
+
             row_data = [
                 instrument,
                 category,  # Use the calculated category
-                rate.get("currency", ""),
+                currency,
                 rate.get("days", ""),
                 f"{long_rate:.2f}%",
                 f"{short_rate:.2f}%",
