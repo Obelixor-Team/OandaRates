@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtGui import QBrush, QColor
 
 
 # --- Matplotlib Canvas for plotting ---
@@ -178,7 +179,24 @@ class View(QMainWindow):
         self.table.setRowCount(len(data))
         for row_idx, row_data in enumerate(data):
             for col_idx, cell_data in enumerate(row_data):
-                self.table.setItem(row_idx, col_idx, QTableWidgetItem(str(cell_data)))
+                item = QTableWidgetItem(str(cell_data))
+                # Apply color to Long Rate, Short Rate, Long Charge, Short Charge columns
+                if col_idx in [
+                    4,
+                    5,
+                    6,
+                    7,
+                ]:  # Long Rate, Short Rate, Long Charge, Short Charge
+                    try:
+                        # Remove '%' and convert to float for comparison
+                        numeric_value = float(str(cell_data).replace("%", ""))
+                        if numeric_value > 0:
+                            item.setForeground(QBrush(QColor("#00ff9d")))  # Green
+                        elif numeric_value < 0:
+                            item.setForeground(QBrush(QColor("#ff5555")))  # Red
+                    except ValueError:
+                        pass  # Ignore if conversion fails
+                self.table.setItem(row_idx, col_idx, item)
 
     def show_history_window(self, instrument_name, history_df, stats):
         """Display a dialog with historical data and stats for an instrument."""
