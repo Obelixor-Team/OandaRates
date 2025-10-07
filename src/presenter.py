@@ -1,15 +1,15 @@
-
 import queue
-import schedule
 import threading
 import time
 from datetime import datetime
-import pytz
+
 import pandas as pd
+import schedule
+
 
 class Presenter:
-    """
-    The presenter acts as the middleman between the View (UI) and the Model (data).
+    """The presenter acts as the middleman between the View (UI) and the Model (data).
+
     It contains the core application logic and ensures thread-safe UI updates.
     """
 
@@ -25,52 +25,69 @@ class Presenter:
     # --- Event Handlers (called by View) ---
 
     def on_app_start(self):
-        """Called when the application starts."""
+        """Start initial data load and scheduler threads.
+
+        Called when the application starts.
+        """
         threading.Thread(target=self._initial_load_job, daemon=True).start()
         self._start_scheduler()
 
     def on_manual_update(self):
-        """Handles the 'Manual Update' button click."""
-        self.ui_update_queue.put({"type": "status", "payload": {"text": "Fetching new data from API..."}})
+        """Handle the 'Manual Update' button click."""
+        self.ui_update_queue.put(
+            {"type": "status", "payload": {"text": "Fetching new data from API..."}}
+        )
         threading.Thread(target=self._fetch_job, daemon=True).start()
 
-    def on_filter_text_changed(self, filter_text):
+    def on_filter_text_changed(self, filter_text: str):
+        """Handle changes in the filter input text."""
         self.filter_text = filter_text.lower()
         self._update_display()
 
-    def on_category_selected(self, category):
+    def on_category_selected(self, category: str):
+        """Handle changes in the category dropdown."""
         self.selected_category = category
         self._update_display()
 
     def on_clear_filter(self):
+        """Handle the 'Clear Filter' button click."""
         self.filter_text = ""
         self.selected_category = "All"
         self.view.clear_inputs()
         self._update_display()
 
-    def on_instrument_double_clicked(self, instrument_name):
-        """Handles a double-click event on the table to show history."""
+    def on_instrument_double_clicked(self, instrument_name: str):
+        """Handle a double-click event on the table to show history."""
         if not instrument_name:
             return
 
         self.view.set_status(f"Loading history for {instrument_name}...")
         history_df = self.model.get_instrument_history(instrument_name)
         if history_df.empty:
-            self.view.set_status(f"No history found for {instrument_name}", is_error=True)
+            self.view.set_status(
+                f"No history found for {instrument_name}",
+                is_error=True,
+            )
             return
 
         # Convert data to numeric before calculating stats
-        history_df['long_rate'] = pd.to_numeric(history_df['long_rate'], errors='coerce')
-        history_df['short_rate'] = pd.to_numeric(history_df['short_rate'], errors='coerce')
+        history_df["long_rate"] = pd.to_numeric(
+            history_df["long_rate"],
+            errors="coerce",
+        )
+        history_df["short_rate"] = pd.to_numeric(
+            history_df["short_rate"],
+            errors="coerce",
+        )
 
         # Calculate stats
         stats = {
-            "Mean Long Rate": history_df['long_rate'].mean(),
-            "Median Long Rate": history_df['long_rate'].median(),
-            "Std Dev Long Rate": history_df['long_rate'].std(),
-            "Mean Short Rate": history_df['short_rate'].mean(),
-            "Median Short Rate": history_df['short_rate'].median(),
-            "Std Dev Short Rate": history_df['short_rate'].std(),
+            "Mean Long Rate": history_df["long_rate"].mean(),
+            "Median Long Rate": history_df["long_rate"].median(),
+            "Std Dev Long Rate": history_df["long_rate"].std(),
+            "Mean Short Rate": history_df["short_rate"].mean(),
+            "Median Short Rate": history_df["short_rate"].median(),
+            "Std Dev Short Rate": history_df["short_rate"].std(),
         }
 
         self.view.show_history_window(instrument_name, history_df, stats)
@@ -79,7 +96,7 @@ class Presenter:
     # --- Core Logic (UI-Thread Safe) ---
 
     def process_ui_updates(self):
-        """Checks the queue for UI updates and applies them. Runs on the main thread."""
+        """Check the queue for UI updates and apply them. Runs on the main thread."""
         try:
             while not self.ui_update_queue.empty():
                 message = self.ui_update_queue.get_nowait()
@@ -87,7 +104,10 @@ class Presenter:
                 payload = message.get("payload")
 
                 if msg_type == "status":
-                    self.view.set_status(payload.get("text"), payload.get("is_error", False))
+                    self.view.set_status(
+                        payload.get("text"),
+                        payload.get("is_error", False),
+                    )
                 elif msg_type == "data":
                     self.raw_data = payload
                     self.latest_date = datetime.now().strftime("%Y-%m-%d")
@@ -102,7 +122,7 @@ class Presenter:
             pass
 
     def _update_display(self):
-        """Filters the current data and updates the view's table."""
+        """Filter the current data and update the view's table."""
         if not self.raw_data or "financingRates" not in self.raw_data:
             self.view.update_table([])
             return
@@ -130,33 +150,63 @@ class Presenter:
                 rate.get("units", ""),
             ]
             filtered_data.append(row_data)
-        
+
         self.view.update_table(filtered_data)
-        self.view.set_status(f"Display updated. Showing {len(filtered_data)} instruments.")
+        self.view.set_status(
+            f"Display updated. Showing {len(filtered_data)} instruments."
+        )
 
     # --- Background Jobs (Worker Threads) ---
 
     def _initial_load_job(self):
-        """Job to load initial data from DB or API."""
-        self.ui_update_queue.put({"type": "status", "payload": {"text": "Loading latest data from database..."}})
+        """Load initial data from DB or API."""
+        self.ui_update_queue.put(
+            {
+                "type": "status",
+                "payload": {"text": "Loading latest data from database..."},
+            }
+        )
         date, data = self.model.get_latest_rates()
         if data:
             self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
-            self.ui_update_queue.put({"type": "status", "payload": {"text": "Data loaded successfully."}})
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": "Data loaded successfully."},
+                }
+            )
         else:
             self._fetch_job(is_initial=True)
 
     def _fetch_job(self, is_initial=False):
-        """Job to fetch new data from the API."""
+        """Fetch new data from the API."""
         if is_initial:
-            self.ui_update_queue.put({"type": "status", "payload": {"text": "No local data. Fetching from API..."}})
-        
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": "No local data. Fetching from API..."},
+                }
+            )
+
         new_data = self.model.fetch_and_save_rates()
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})
-            self.ui_update_queue.put({"type": "status", "payload": {"text": "API fetch successful."}})
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": "API fetch successful."},
+                }
+            )
         else:
-            self.ui_update_queue.put({"type": "status", "payload": {"text": "API fetch failed. Check logs.", "is_error": True}})
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {
+                        "text": "API fetch failed. Check logs.",
+                        "is_error": True,
+                    },
+                }
+            )
 
     # --- Scheduler Logic ---
 
@@ -171,5 +221,11 @@ class Presenter:
             time.sleep(60)
 
     def _scheduled_update_job(self):
-        self.ui_update_queue.put({"type": "status", "payload": {"text": "Performing scheduled update..."}})
+        """Perform the scheduled update job."""
+        self.ui_update_queue.put(
+            {
+                "type": "status",
+                "payload": {"text": "Performing scheduled update..."},
+            }
+        )
         self._fetch_job()

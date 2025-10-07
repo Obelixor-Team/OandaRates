@@ -28,3 +28,7 @@ GEMINI.md
 
 # OS-generated files
 .DS_Store
+
+# Build artifacts
+build/
+src/oanda_rates.egg-info/

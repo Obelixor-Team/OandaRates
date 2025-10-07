@@ -25,6 +25,30 @@ dependencies = [
     "pytz",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "black",
+    "mypy",
+    "pandas-stubs",
+    "types-requests",
+]
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "C", "N", "D"]
+ignore = ["D100", "D104", "D105", "D107", "D203"]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
