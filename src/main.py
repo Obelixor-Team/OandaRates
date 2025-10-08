@@ -13,9 +13,10 @@ if __name__ == "__main__":
 
     # Create instances of the MVP components
     m = Model()
-    p = Presenter(m, None)
-    v = View(p)
-    p.view = v
+    v = View()  # Instantiate View without presenter initially
+    p = Presenter(m, v)  # Instantiate Presenter with Model and View
+    v.set_presenter(p)  # Set the presenter in the View
+    p.on_app_start()  # Call on_app_start after everything is set up
 
     # Show the main window
     v.show()

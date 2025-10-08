@@ -19,8 +19,8 @@ Based on the provided code review, here's an action plan to address the identifi
 2.  **Robust Scheduling (Completed)**:
     *   **Action**: Replaced the `schedule` library with `APScheduler` for more reliable and feature-rich scheduling, ensuring timezone awareness (5:30 PM ET).
 
-3.  **Enhanced Type Hints**:
-    *   **Action**: Consistently add type hints across all methods and classes, especially in `Presenter.__init__`, and leverage `mypy` to enforce them.
+3.  **Enhanced Type Hints (Completed)**:
+    *   **Action**: Consistently added type hints across relevant methods and classes, including `Presenter.__init__`, and resolved circular dependencies for proper type enforcement.
 
 4.  **Unit and Integration Tests**:
     *   **Action**: Develop comprehensive unit tests for `Model.categorize_instrument`, `Model.fetch_and_save_rates`, and `Presenter._update_display`. Also, create integration tests for the full MVP flow.

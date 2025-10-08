@@ -1,9 +1,14 @@
 import queue
 import threading
 from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
+
+if TYPE_CHECKING:
+    from .model import Model
+    from .view import View
 
 
 class Presenter:
@@ -12,14 +17,14 @@ class Presenter:
     It contains the core application logic and ensures thread-safe UI updates.
     """
 
-    def __init__(self, model, view):
+    def __init__(self, model: "Model", view: "View") -> None:
         self.model = model
         self.view = view
-        self.latest_date = None
-        self.raw_data = {}
-        self.filter_text = ""
-        self.selected_category = "All"
-        self.ui_update_queue = queue.Queue()
+        self.latest_date: Optional[str] = None
+        self.raw_data: Dict[str, Any] = {}
+        self.filter_text: str = ""
+        self.selected_category: str = "All"
+        self.ui_update_queue: queue.Queue[Dict[str, Any]] = queue.Queue()
 
     # --- Event Handlers (called by View) ---
 

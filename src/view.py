@@ -19,6 +19,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtCore import QSettings, Qt
 
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .presenter import Presenter
+
 
 class NumericTableWidgetItem(QTableWidgetItem):
     """Custom QTableWidgetItem for numerical sorting."""
@@ -120,14 +125,14 @@ class HistoryDialog(QDialog):
 class View(QMainWindow):
     """Main application window for displaying OANDA financing rates."""
 
-    def __init__(self, presenter):
+    def __init__(self, presenter: Optional["Presenter"] = None) -> None:
         super().__init__()
-        self.presenter = presenter
+        self._presenter: Optional["Presenter"] = presenter
         self.setWindowTitle("OANDA FINANCING TERMINAL v4.0")
         # self.setGeometry(100, 100, 1400, 900) # Removed to use saved geometry
         self._apply_stylesheet()
         self._setup_ui()
-        self.presenter.on_app_start()
+        # self.presenter.on_app_start() # This will be called from main.py after presenter is set
 
         # Load window settings
         self.settings = QSettings("OandaRates", "OandaFinancingTerminal")
@@ -135,6 +140,17 @@ class View(QMainWindow):
             self.restoreGeometry(self.settings.value("geometry"))
         else:
             self.setGeometry(100, 100, 1400, 900)  # Default size if no settings saved
+
+    def set_presenter(self, presenter: "Presenter") -> None:
+        self._presenter = presenter
+        # Connect signals to presenter methods after presenter is set
+        self.filter_input.textChanged.connect(self._presenter.on_filter_text_changed)
+        self.category_combo.currentTextChanged.connect(
+            self._presenter.on_category_selected
+        )
+        self.clear_btn.clicked.connect(self._presenter.on_clear_filter)
+        self.update_btn.clicked.connect(self._presenter.on_manual_update)
+        self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
     def _setup_ui(self):
         # --- Central Widget and Layouts ---
@@ -203,15 +219,6 @@ class View(QMainWindow):
 
         main_layout.addLayout(control_layout)
         main_layout.addWidget(self.table)
-
-        # --- Connect Signals ---
-        self.filter_input.textChanged.connect(self.presenter.on_filter_text_changed)
-        self.category_combo.currentTextChanged.connect(
-            self.presenter.on_category_selected
-        )
-        self.clear_btn.clicked.connect(self.presenter.on_clear_filter)
-        self.update_btn.clicked.connect(self.presenter.on_manual_update)
-        self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
     def _on_table_double_click(self, item):
         instrument_name = self.table.item(item.row(), 0).text()
