@@ -290,8 +290,8 @@ class Presenter:
     # --- Scheduler Logic ---
 
     def _start_scheduler(self):
-        scheduler = BackgroundScheduler()
-        scheduler.add_job(self._scheduled_update_job, "cron", hour=22, minute=30)
+        scheduler = BackgroundScheduler(timezone="America/New_York")
+        scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
         scheduler.start()
 
     def _scheduled_update_job(self):
