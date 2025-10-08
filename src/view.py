@@ -17,7 +17,21 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from PyQt6.QtGui import QBrush, QColor
-from PyQt6.QtCore import QSettings
+from PyQt6.QtCore import QSettings, Qt
+
+
+class NumericTableWidgetItem(QTableWidgetItem):
+    """Custom QTableWidgetItem for numerical sorting."""
+
+    def __lt__(self, other):
+        if isinstance(other, QTableWidgetItem):
+            try:
+                return float(self.data(Qt.ItemDataRole.UserRole)) < float(
+                    other.data(Qt.ItemDataRole.UserRole)
+                )
+            except (ValueError, TypeError):
+                pass  # Fallback to default string comparison
+        return super().__lt__(other)
 
 
 # --- Matplotlib Canvas for plotting ---
@@ -171,6 +185,7 @@ class View(QMainWindow):
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+        self.table.setSortingEnabled(True)  # Enable sorting
 
         # --- Status Bar ---
         self.status_label = QLabel("TERMINAL READY")
@@ -204,11 +219,35 @@ class View(QMainWindow):
 
     def update_table(self, data):
         """Update the main table with new data."""
-        self.table.setRowCount(0)
+        # Store current sort order
+        current_sort_column = self.table.horizontalHeader().sortIndicatorSection()
+        current_sort_order = self.table.horizontalHeader().sortIndicatorOrder()
+
+        self.table.setSortingEnabled(False)  # Disable sorting during update
         self.table.setRowCount(len(data))
         for row_idx, row_data in enumerate(data):
             for col_idx, cell_data in enumerate(row_data):
-                item = QTableWidgetItem(str(cell_data))
+                # Use NumericTableWidgetItem for numerical columns, QTableWidgetItem for others
+                if col_idx in [
+                    4,
+                    5,
+                    6,
+                    7,
+                ]:  # Long Rate, Short Rate, Long Charge, Short Charge
+                    item = NumericTableWidgetItem()
+                    try:
+                        numeric_value = float(str(cell_data).replace("%", ""))
+                        item.setData(Qt.ItemDataRole.UserRole, numeric_value)
+                    except ValueError:
+                        item.setData(
+                            Qt.ItemDataRole.UserRole, str(cell_data)
+                        )  # Fallback for non-numeric
+                else:
+                    item = QTableWidgetItem()
+                    item.setData(Qt.ItemDataRole.UserRole, str(cell_data))
+
+                item.setData(Qt.ItemDataRole.DisplayRole, str(cell_data))
+
                 # Apply color to Long Rate, Short Rate, Long Charge, Short Charge columns
                 if col_idx in [
                     4,
@@ -217,7 +256,6 @@ class View(QMainWindow):
                     7,
                 ]:  # Long Rate, Short Rate, Long Charge, Short Charge
                     try:
-                        # Remove '%' and convert to float for comparison
                         numeric_value = float(str(cell_data).replace("%", ""))
                         if numeric_value > 0:
                             item.setForeground(QBrush(QColor("#00ff9d")))  # Green
@@ -226,6 +264,11 @@ class View(QMainWindow):
                     except ValueError:
                         pass  # Ignore if conversion fails
                 self.table.setItem(row_idx, col_idx, item)
+
+        self.table.setSortingEnabled(True)  # Re-enable sorting
+        # Restore previous sort order
+        if current_sort_column != -1:
+            self.table.sortItems(current_sort_column, current_sort_order)
 
     def show_history_window(self, instrument_name, history_df, stats):
         """Display a dialog with historical data and stats for an instrument."""
