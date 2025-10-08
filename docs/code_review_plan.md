@@ -16,8 +16,8 @@ Based on the provided code review, here's an action plan to address the identifi
 1.  **Configuration File (Completed)**:
     *   **Action**: Implemented `config.yaml` for `API_URL`, `HEADERS`, `DB_FILE`, and instrument categorization lists.
 
-2.  **Robust Scheduling**:
-    *   **Action**: Replace the `schedule` library with `APScheduler` for more reliable and feature-rich scheduling.
+2.  **Robust Scheduling (Completed)**:
+    *   **Action**: Replaced the `schedule` library with `APScheduler` for more reliable and feature-rich scheduling, and updated dependencies.
 
 3.  **Enhanced Type Hints**:
     *   **Action**: Consistently add type hints across all methods and classes, especially in `Presenter.__init__`, and leverage `mypy` to enforce them.

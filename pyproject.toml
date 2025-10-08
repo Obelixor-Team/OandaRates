@@ -18,7 +18,7 @@ classifiers = [
 dependencies = [
     "requests",
     "SQLAlchemy",
-    "schedule",
+    "APScheduler",
     "PyQt6",
     "matplotlib",
     "pandas",
@@ -67,4 +67,8 @@ show_error_codes = true
 
 [[tool.mypy.overrides]]
 module = "src.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "apscheduler.*"
 ignore_missing_imports = true

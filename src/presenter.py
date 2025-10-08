@@ -1,10 +1,9 @@
 import queue
 import threading
-import time
 from datetime import datetime
 
 import pandas as pd
-import schedule
+from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 
 
 class Presenter:
@@ -291,14 +290,9 @@ class Presenter:
     # --- Scheduler Logic ---
 
     def _start_scheduler(self):
-        schedule.every().day.at("22:30").do(self._scheduled_update_job)
-        scheduler_thread = threading.Thread(target=self._run_scheduler, daemon=True)
-        scheduler_thread.start()
-
-    def _run_scheduler(self):
-        while True:
-            schedule.run_pending()
-            time.sleep(60)
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(self._scheduled_update_job, "cron", hour=22, minute=30)
+        scheduler.start()
 
     def _scheduled_update_job(self):
         """Perform the scheduled update job."""
