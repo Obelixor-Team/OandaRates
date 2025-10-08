@@ -229,7 +229,7 @@ class View(QMainWindow):
 
     def _on_table_double_click(self, item):
         instrument_name = self.table.item(item.row(), 0).text()
-        self.presenter.on_instrument_double_clicked(instrument_name)
+        self._presenter.on_instrument_double_clicked(instrument_name)
 
     def update_table(self, data):
         """Update the main table with new data."""
