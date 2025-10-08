@@ -85,10 +85,24 @@ class Presenter:
             "Mean Long Rate": history_df["long_rate"].mean(),
             "Median Long Rate": history_df["long_rate"].median(),
             "Std Dev Long Rate": history_df["long_rate"].std(),
+            "Min Long Rate": history_df["long_rate"].min(),
+            "Max Long Rate": history_df["long_rate"].max(),
             "Mean Short Rate": history_df["short_rate"].mean(),
             "Median Short Rate": history_df["short_rate"].median(),
             "Std Dev Short Rate": history_df["short_rate"].std(),
+            "Min Short Rate": history_df["short_rate"].min(),
+            "Max Short Rate": history_df["short_rate"].max(),
         }
+
+        # Calculate daily changes and their averages
+        if len(history_df) > 1:
+            history_df["long_rate_diff"] = history_df["long_rate"].diff().abs()
+            history_df["short_rate_diff"] = history_df["short_rate"].diff().abs()
+            stats["Avg Daily Change Long Rate"] = history_df["long_rate_diff"].mean()
+            stats["Avg Daily Change Short Rate"] = history_df["short_rate_diff"].mean()
+        else:
+            stats["Avg Daily Change Long Rate"] = 0.0
+            stats["Avg Daily Change Short Rate"] = 0.0
 
         self.view.show_history_window(instrument_name, history_df, stats)
         self.view.set_status("History window displayed.")

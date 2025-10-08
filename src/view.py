@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+    QSizePolicy,
 )
 from PyQt6.QtGui import QBrush, QColor
 
@@ -36,6 +37,7 @@ class MplCanvas(FigureCanvas):
         self.axes.yaxis.label.set_color("#e0e0e0")
         self.axes.title.set_color("#e0e0e0")
         super(MplCanvas, self).__init__(fig)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
 
 # --- History Dialog ---
@@ -45,14 +47,17 @@ class HistoryDialog(QDialog):
     def __init__(self, instrument_name, history_df, stats, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"History for {instrument_name}")
-        self.setMinimumSize(800, 600)
+        # self.setMinimumSize(800, 600) # Removed to allow dynamic resizing
 
         layout = QVBoxLayout()
 
         # Stats
         stats_text = ""
         for key, value in stats.items():
-            stats_text += f"{key}: {value * 100:.2f}%\n"
+            if "Rate" in key or "Change" in key:
+                stats_text += f"{key}: {value * 100:.2f}%\n"
+            else:
+                stats_text += f"{key}: {value:.2f}\n"
         stats_label = QLabel(stats_text)
         layout.addWidget(stats_label)
 
@@ -75,9 +80,11 @@ class HistoryDialog(QDialog):
             sc.axes.set_xlabel("Date")
             sc.axes.set_ylabel("Rate (%)")
             sc.figure.autofmt_xdate()
+            sc.figure.tight_layout()  # Add tight layout for better plot spacing
             layout.addWidget(sc)
 
         self.setLayout(layout)
+        self.resize(800, 600)  # Set an initial size, but allow resizing
 
 
 # --- Main View ---
