@@ -23,7 +23,7 @@ Based on the provided code review, here's an action plan to address the identifi
     *   **Action**: Consistently added type hints across relevant methods and classes, including `Presenter.__init__`, and resolved circular dependencies for proper type enforcement.
 
 4.  **Unit and Integration Tests**:
-    *   **Action**: Develop comprehensive unit tests for `Model.categorize_instrument`, `Model.fetch_and_save_rates`, and `Presenter._update_display`. Also, create integration tests for the full MVP flow.
+    *   **Action**: Developed comprehensive unit tests for `Model.categorize_instrument`. Further tests for `Model.fetch_and_save_rates`, `Presenter._update_display`, and integration tests are pending.
 
 5.  **Consolidate Duplicated Logic**:
     *   **Action**: Move the `_infer_currency` method from `presenter.py` to the `Model` class to centralize currency-related logic.
