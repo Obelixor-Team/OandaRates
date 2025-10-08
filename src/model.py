@@ -1,5 +1,5 @@
 import json
-import logging
+
 from datetime import datetime
 
 import pandas as pd
@@ -8,11 +8,7 @@ from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 # Setup logging
-logging.basicConfig(
-    filename="oanda_instrument_log.txt",
-    level=logging.INFO,
-    format="%(asctime)s - %(message)s",
-)
+
 
 # Constants
 API_URL = "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1"
@@ -148,7 +144,6 @@ class Model:
         if "_cfd" in instrument_lower:
             return "CFDs"
 
-        logging.info(f"Uncategorized instrument: {instrument} -> Other")
         return "Other"
 
     def fetch_and_save_rates(self, save_to_db: bool = True):
@@ -167,7 +162,6 @@ class Model:
             data = response.json()
 
             if "financingRates" not in data:
-                logging.error("API response format is unexpected.")
                 return None
 
             if save_to_db:
@@ -181,20 +175,16 @@ class Model:
                         new_rate = Rate(date=today, raw_data=json.dumps(data))  # type: ignore  # type: ignore
                         session.add(new_rate)
                     session.commit()
-                    logging.info(f"Successfully fetched and saved data for {today}.")
-                except Exception as e:
+                except Exception:
                     session.rollback()
-                    logging.error(f"Database error: {e}")
                     return None
                 finally:
                     session.close()
             return data
 
-        except requests.exceptions.RequestException as e:
-            logging.error(f"Fetch error: {e}")
+        except requests.exceptions.RequestException:
             return None
-        except ValueError as e:
-            logging.error(f"Data error: {e}")
+        except ValueError:
             return None
 
     def get_latest_rates(self):
