@@ -21,6 +21,8 @@ from PyQt6.QtCore import QSettings, Qt
 
 from typing import TYPE_CHECKING, Optional
 
+from .theme import THEME
+
 if TYPE_CHECKING:
     from .presenter import Presenter
 
@@ -44,18 +46,20 @@ class MplCanvas(FigureCanvas):
     """Matplotlib canvas for embedding plots in PyQt6 applications."""
 
     def __init__(self, parent=None, width=5, height=4, dpi=100):
-        fig = Figure(figsize=(width, height), dpi=dpi, facecolor="#121220")
+        fig = Figure(
+            figsize=(width, height), dpi=dpi, facecolor=THEME["plot_background"]
+        )
         self.axes = fig.add_subplot(111)
-        self.axes.set_facecolor("#121220")
-        self.axes.spines["top"].set_color("#e0e0e0")
-        self.axes.spines["bottom"].set_color("#e0e0e0")
-        self.axes.spines["left"].set_color("#e0e0e0")
-        self.axes.spines["right"].set_color("#e0e0e0")
-        self.axes.tick_params(axis="x", colors="#e0e0e0")
-        self.axes.tick_params(axis="y", colors="#e0e0e0")
-        self.axes.xaxis.label.set_color("#e0e0e0")
-        self.axes.yaxis.label.set_color("#e0e0e0")
-        self.axes.title.set_color("#e0e0e0")
+        self.axes.set_facecolor(THEME["plot_background"])
+        self.axes.spines["top"].set_color(THEME["text"])
+        self.axes.spines["bottom"].set_color(THEME["text"])
+        self.axes.spines["left"].set_color(THEME["text"])
+        self.axes.spines["right"].set_color(THEME["text"])
+        self.axes.tick_params(axis="x", colors=THEME["text"])
+        self.axes.tick_params(axis="y", colors=THEME["text"])
+        self.axes.xaxis.label.set_color(THEME["text"])
+        self.axes.yaxis.label.set_color(THEME["text"])
+        self.axes.title.set_color(THEME["text"])
         super(MplCanvas, self).__init__(fig)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
@@ -284,7 +288,7 @@ class View(QMainWindow):
 
     def set_status(self, text, is_error=False):
         """Set the status bar message."""
-        color = "#ff5555" if is_error else "#00ff9d"
+        color = THEME["negative"] if is_error else THEME["positive"]
         self.status_label.setText(text)
         self.status_label.setStyleSheet(f"color: {color};")
 
@@ -298,53 +302,53 @@ class View(QMainWindow):
         self.category_combo.setCurrentIndex(0)
 
     def _apply_stylesheet(self):
-        qss = """
-            QMainWindow, QDialog {
-                background-color: #0a0a12;
-                color: #e0e0e0;
-            }
-            QWidget {
-                background-color: #0a0a12;
-                color: #e0e0e0;
-            }
-            QTableView, QTableWidget {
-                background-color: #1a1a2e;
-                gridline-color: #2a2a3e;
-            }
-            QHeaderView::section {
-                background-color: #121220;
-                color: #00ff9d;
+        qss = f"""
+            QMainWindow, QDialog {{
+                background-color: {THEME["background"]};
+                color: {THEME["text"]};
+            }}
+            QWidget {{
+                background-color: {THEME["background"]};
+                color: {THEME["text"]};
+            }}
+            QTableView, QTableWidget {{
+                background-color: {THEME["table_background"]};
+                gridline-color: {THEME["table_gridline"]};
+            }}
+            QHeaderView::section {{
+                background-color: {THEME["header_background"]};
+                color: {THEME["header_text"]};
                 padding: 4px;
-                border: 1px solid #2a2a3e;
-            }
-            QTableWidget::item {
+                border: 1px solid {THEME["table_gridline"]};
+            }}
+            QTableWidget::item {{
                 padding: 5px;
-            }
-            QTableWidget::item:selected {
-                background-color: #0095ff;
-                color: #ffffff;
-            }
-            QPushButton {
-                background-color: #0095ff;
-                color: #ffffff;
+            }}
+            QTableWidget::item:selected {{
+                background-color: {THEME["selected_background"]};
+                color: {THEME["selected_text"]};
+            }}
+            QPushButton {{
+                background-color: {THEME["button_background"]};
+                color: {THEME["button_text"]};
                 border: none;
                 padding: 8px 15px;
                 font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #0077cc;
-            }
-            QLineEdit, QComboBox {
-                background-color: #1a1a2e;
-                border: 1px solid #2a2a3e;
+            }}
+            QPushButton:hover {{
+                background-color: {THEME["button_hover"]};
+            }}
+            QLineEdit, QComboBox {{
+                background-color: {THEME["input_background"]};
+                border: 1px solid {THEME["input_border"]};
                 padding: 5px;
-            }
-            QStatusBar {
-                color: #a0a0b0;
-            }
-            QLabel {
-                color: #a0a0b0;
-            }
+            }}
+            QStatusBar {{
+                color: {THEME["status_text"]};
+            }}
+            QLabel {{
+                color: {THEME["status_text"]};
+            }}
         """
         self.setStyleSheet(qss)
 

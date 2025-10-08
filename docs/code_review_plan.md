@@ -28,8 +28,8 @@ Based on the provided code review, here's an action plan to address the identifi
 5.  **Consolidate Duplicated Logic (Completed)**:
     *   **Action**: Moved the `_infer_currency` method from `presenter.py` to the `Model` class to centralize currency-related logic.
 
-6.  **Centralized Theme**:
-    *   **Action**: Define a theme dictionary in a separate file (e.g., `theme.py`) for consistent styling across the GUI and plots.
+6.  **Centralized Theme (Completed)**:
+    *   **Action**: Defined a theme dictionary in `src/theme.py` and replaced hardcoded colors in `src/view.py` with values from this theme for consistent styling.
 
 7.  **Enhanced Logging**:
     *   **Action**: Implement a rotating file handler for `oanda_instrument_log.txt` to manage log file size.

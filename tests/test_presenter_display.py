@@ -10,15 +10,15 @@ def mock_model():
     # Configure categorize_instrument to return a predictable category
     model.categorize_instrument.side_effect = lambda instrument: {
         "EUR_USD": "Forex",
-        "GBP_USD": "Forex", # Added for currency inference test
+        "GBP_USD": "Forex",  # Added for currency inference test
         "XAU_USD": "Metals",
         "WTICO_USD": "Commodities",
         "US30_USD": "Indices",
         "DE10YB_EUR": "Bonds",
         "SOME_INSTRUMENT_CFD": "CFDs",
         "UNKNOWN": "Other",
-        "AUD/CAD": "Other", # For currency inference test
-        "UNKNOWN_CURRENCY": "Other", # For currency inference test
+        "AUD/CAD": "Other",  # For currency inference test
+        "UNKNOWN_CURRENCY": "Other",  # For currency inference test
     }.get(instrument, "Other")
     model._infer_currency.side_effect = lambda instrument, api_currency: {
         "EUR_USD": "USD",
