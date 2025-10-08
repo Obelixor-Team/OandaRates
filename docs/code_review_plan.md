@@ -8,8 +8,8 @@ Based on the provided code review, here's an action plan to address the identifi
     *   **Issue**: The `# type: ignore` comments in `fetch_and_save_rates` are present due to `mypy`'s limitations in understanding SQLAlchemy ORM types without additional configuration (e.g., `sqlalchemy-stubs`).
     *   **Action**: While a proper long-term solution would involve setting up `sqlalchemy-stubs` and configuring `mypy` accordingly, for now, these comments are necessary to avoid `mypy` errors. This item will remain here as a reminder for future improvement, but no immediate code change will be made to remove the `type: ignore` comments themselves.
 
-2.  **Hardcoded Constants**:
-    *   **Action**: Move `API_URL`, `HEADERS`, and `DB_FILE` from `model.py` to a configuration file (e.g., `config.yaml`) or environment variables.
+2.  **Hardcoded Constants (Completed)**:
+    *   **Action**: Moved `API_URL`, `HEADERS`, and `DB_FILE` from `model.py` to `config.yaml` and updated `model.py` to read from it.
 
 ## Suggested Improvements and Next Steps:
 
