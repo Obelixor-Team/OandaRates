@@ -180,3 +180,94 @@ def test_fetch_and_save_rates_no_financing_rates_in_response(model_instance, moc
     mock_session.commit.assert_not_called()
     mock_session.rollback.assert_not_called()
     mock_session.close.assert_not_called()
+
+
+def test_get_latest_rates_no_data(model_instance, mock_session):
+    # Arrange
+    mock_session.query.return_value.order_by.return_value.first.return_value = None
+
+    # Act
+    date, data = model_instance.get_latest_rates()
+
+    # Assert
+    assert date is None
+    assert data is None
+    mock_session.query.return_value.order_by.return_value.first.assert_called_once()
+    mock_session.close.assert_called_once()
+
+
+def test_get_latest_rates_with_data(model_instance, mock_session):
+    # Arrange
+    mock_rate = MagicMock()
+    mock_rate.date = "2023-01-01"
+    mock_rate.raw_data = json.dumps({"financingRates": [{"instrument": "EUR_USD"}]})
+    mock_session.query.return_value.order_by.return_value.first.return_value = mock_rate
+
+    # Act
+    date, data = model_instance.get_latest_rates()
+
+    # Assert
+    assert date == "2023-01-01"
+    assert data == {"financingRates": [{"instrument": "EUR_USD"}]}
+    mock_session.query.return_value.order_by.return_value.first.assert_called_once()
+    mock_session.close.assert_called_once()
+
+
+def test_get_instrument_history_no_data(model_instance, mock_session):
+    # Arrange
+    mock_session.query.return_value.order_by.return_value.all.return_value = []
+
+    # Act
+    history_df = model_instance.get_instrument_history("EUR_USD")
+
+    # Assert
+    assert history_df.empty
+    mock_session.query.return_value.order_by.return_value.all.assert_called_once()
+    mock_session.close.assert_called_once()
+
+
+def test_get_instrument_history_with_data(model_instance, mock_session):
+    # Arrange
+    mock_rate1 = MagicMock()
+    mock_rate1.date = "2023-01-01"
+    mock_rate1.raw_data = json.dumps({"financingRates": [
+        {"instrument": "EUR_USD", "longRate": 0.01, "shortRate": -0.02},
+        {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
+    ]})
+    mock_rate2 = MagicMock()
+    mock_rate2.date = "2023-01-02"
+    mock_rate2.raw_data = json.dumps({"financingRates": [
+        {"instrument": "EUR_USD", "longRate": 0.015, "shortRate": -0.025},
+        {"instrument": "GBP_USD", "longRate": 0.035, "shortRate": -0.045},
+    ]})
+    mock_session.query.return_value.order_by.return_value.all.return_value = [mock_rate1, mock_rate2]
+
+    # Act
+    history_df = model_instance.get_instrument_history("EUR_USD")
+
+    # Assert
+    assert not history_df.empty
+    assert len(history_df) == 2
+    assert history_df["date"].tolist() == ["2023-01-01", "2023-01-02"]
+    assert history_df["long_rate"].tolist() == [0.01, 0.015]
+    assert history_df["short_rate"].tolist() == [-0.02, -0.025]
+    mock_session.query.return_value.order_by.return_value.all.assert_called_once()
+    mock_session.close.assert_called_once()
+
+
+def test_get_instrument_history_no_matching_instrument(model_instance, mock_session):
+    # Arrange
+    mock_rate1 = MagicMock()
+    mock_rate1.date = "2023-01-01"
+    mock_rate1.raw_data = json.dumps({"financingRates": [
+        {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
+    ]})
+    mock_session.query.return_value.order_by.return_value.all.return_value = [mock_rate1]
+
+    # Act
+    history_df = model_instance.get_instrument_history("EUR_USD")
+
+    # Assert
+    assert history_df.empty
+    mock_session.query.return_value.order_by.return_value.all.assert_called_once()
+    mock_session.close.assert_called_once()
