@@ -11,7 +11,18 @@ from typing import Optional  # Add this import
 
 
 def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> View:
-    """Encapsulates the application setup and returns the main View instance."""
+    """Initialize the MVP components and start the application.
+
+    Args:
+        app: The QApplication instance for the PyQt6 application.
+        mock_presenter: Optional mock Presenter for testing purposes.
+
+    Returns:
+        View: The initialized main View instance.
+
+    Raises:
+        RuntimeError: If the Presenter or View initialization fails.
+    """
     # Create instances of the MVP components
     m = Model()
     v = View()  # Instantiate View without presenter initially

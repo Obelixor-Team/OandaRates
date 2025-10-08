@@ -65,8 +65,6 @@ class Presenter:
         if not isinstance(instrument_name, str):
             # Optionally log an error or handle invalid input gracefully
             return
-        if not instrument_name:
-            return
 
         self.view.set_status(f"Loading history for {instrument_name}...")
         history_df = self.model.get_instrument_history(instrument_name)

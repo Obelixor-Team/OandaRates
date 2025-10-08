@@ -1,34 +1,57 @@
 import json
 import yaml
-
 from datetime import datetime
+from typing import Dict
 
 import pandas as pd
 import requests
 from sqlalchemy import Column, String, Text, create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, Mapped, mapped_column
 
-# Load configuration
+# Validate and load configuration
+def validate_config(config: Dict) -> None:
+    """Validate the configuration file for required keys.
+
+    Args:
+        config: The loaded configuration dictionary.
+
+    Raises:
+        ValueError: If a required key is missing.
+    """
+    required_keys = [
+        "api.url",
+        "api.headers",
+        "database.file",
+        "categories.currencies",
+        "categories.metals",
+        "categories.commodities",
+        "categories.indices",
+        "categories.bonds",
+        "categories.currency_suffixes",
+    ]
+    for key in required_keys:
+        parent, child = key.split(".")
+        if parent not in config or child not in config[parent]:
+            raise ValueError(f"Missing required config key: {key}")
+
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
+    validate_config(config)
 
 # Constants
 API_URL = config["api"]["url"]
 HEADERS = config["api"]["headers"]
 DB_FILE = config["database"]["file"]
 
-
 # Database setup
 class Base(DeclarativeBase):
     pass
 
-
 class Rate(Base):
     """SQLAlchemy model for storing OANDA financing rates."""
-
     __tablename__ = "rates"
     date = Column(String, primary_key=True)
-    raw_data = Column(Text)
+    raw_data: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 engine = create_engine(f"sqlite:///{DB_FILE}")
@@ -80,35 +103,11 @@ class Model:
         if "/" in instrument_name:
             return instrument_name.split("/")[1]
 
-        # Mapping of suffixes to currencies
-        suffix_to_currency = {
-            "USD": "USD",
-            "EUR": "EUR",
-            "GBP": "GBP",
-            "JPY": "JPY",
-            "AUD": "AUD",
-            "CAD": "CAD",
-            "CHF": "CHF",
-            "NZD": "NZD",
-            "SGD": "SGD",
-            "HKD": "HKD",
-            "NOK": "NOK",
-            "SEK": "SEK",
-            "DKK": "DKK",
-            "MXN": "MXN",
-            "ZAR": "ZAR",
-            "TRY": "TRY",
-            "CNH": "CNH",
-            "PLN": "PLN",
-            "CZK": "CZK",
-            "HUF": "HUF",
-        }
-
+        suffix_to_currency = config["categories"]["currency_suffixes"]
         for suffix, currency in suffix_to_currency.items():
             if instrument_name.endswith(suffix):
                 return currency
-
-        return api_currency  # Fallback to API provided currency
+        return api_currency
 
     def fetch_and_save_rates(self, save_to_db: bool = True):
         """Fetch financing rates from the OANDA API and save them to the database.
@@ -133,10 +132,11 @@ class Model:
                 session = Session()
                 try:
                     existing = session.query(Rate).filter_by(date=today).first()
+                    raw_data_str = json.dumps(data)
                     if existing:
-                        existing.raw_data = json.dumps(data)  # type: ignore  # type: ignore
+                        existing.raw_data = raw_data_str
                     else:
-                        new_rate = Rate(date=today, raw_data=json.dumps(data))  # type: ignore  # type: ignore
+                        new_rate = Rate(date=today, raw_data=raw_data_str)
                         session.add(new_rate)
                     session.commit()
                 except Exception:

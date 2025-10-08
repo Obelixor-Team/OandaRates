@@ -125,7 +125,7 @@ class HistoryDialog(QDialog):
             layout.addWidget(sc)
 
         self.setLayout(layout)
-        self.resize(800, 600)  # Set an initial size, but allow resizing
+        self.resize(self.sizeHint())  # Dynamic sizing based on content
 
 
 # --- Main View ---
@@ -272,9 +272,9 @@ class View(QMainWindow):
                     try:
                         numeric_value = float(str(cell_data).replace("%", ""))
                         if numeric_value > 0:
-                            item.setForeground(QBrush(QColor("#00ff9d")))  # Green
+                            item.setForeground(QBrush(QColor(THEME["positive"])))  # Green
                         elif numeric_value < 0:
-                            item.setForeground(QBrush(QColor("#ff5555")))  # Red
+                            item.setForeground(QBrush(QColor(THEME["negative"])))  # Red
                     except ValueError:
                         pass  # Ignore if conversion fails
                 self.table.setItem(row_idx, col_idx, item)
