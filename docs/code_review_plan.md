@@ -31,8 +31,7 @@ Based on the provided code review, here's an action plan to address the identifi
 6.  **Centralized Theme (Completed)**:
     *   **Action**: Defined a theme dictionary in `src/theme.py` and replaced hardcoded colors in `src/view.py` with values from this theme for consistent styling.
 
-7.  **Enhanced Logging**:
-    *   **Action**: Implement a rotating file handler for `oanda_instrument_log.txt` to manage log file size.
+
 
 8.  **Input Validation**:
     *   **Action**: Add robust input validation in methods like `on_filter_text_changed` and `on_instrument_double_clicked` to prevent issues with malformed data.
