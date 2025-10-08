@@ -7,14 +7,18 @@ from .model import Model
 from .presenter import Presenter
 from .view import View
 
-if __name__ == "__main__":
-    """The main entry point for the PyQt6 application."""
-    app = QApplication(sys.argv)
+from typing import Optional  # Add this import
 
+
+def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> View:
+    """Encapsulates the application setup and returns the main View instance."""
     # Create instances of the MVP components
     m = Model()
     v = View()  # Instantiate View without presenter initially
-    p = Presenter(m, v)  # Instantiate Presenter with Model and View
+    if mock_presenter:
+        p = mock_presenter
+    else:
+        p = Presenter(m, v)  # Instantiate Presenter with Model and View
     v.set_presenter(p)  # Set the presenter in the View
     p.on_app_start()  # Call on_app_start after everything is set up
 
@@ -27,5 +31,10 @@ if __name__ == "__main__":
     timer.timeout.connect(p.process_ui_updates)
     timer.start(16)  # Check for updates roughly 60 times per second
 
-    # Start the application event loop
+    return v
+
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    view_instance = run_app(app)
     sys.exit(app.exec())

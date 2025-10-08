@@ -24,6 +24,7 @@ dependencies = [
     "pandas",
     "pytz",
     "PyYAML",
+    "pytest-qt",
 ]
 
 [project.optional-dependencies]
@@ -37,6 +38,7 @@ dev = [
     "bandit",
     "radon",
     "types-PyYAML",
+    "types-PyQt6",
 ]
 
 [build-system]
