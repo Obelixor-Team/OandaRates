@@ -8,6 +8,7 @@ import requests
 from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Mapped, mapped_column
 
+
 # Validate and load configuration
 def validate_config(config: Dict) -> None:
     """Validate the configuration file for required keys.
@@ -34,6 +35,7 @@ def validate_config(config: Dict) -> None:
         if parent not in config or child not in config[parent]:
             raise ValueError(f"Missing required config key: {key}")
 
+
 with open("config.yaml", "r") as f:
     config = yaml.safe_load(f)
     validate_config(config)
@@ -43,12 +45,15 @@ API_URL = config["api"]["url"]
 HEADERS = config["api"]["headers"]
 DB_FILE = config["database"]["file"]
 
+
 # Database setup
 class Base(DeclarativeBase):
     pass
 
+
 class Rate(Base):
     """SQLAlchemy model for storing OANDA financing rates."""
+
     __tablename__ = "rates"
     date = Column(String, primary_key=True)
     raw_data: Mapped[str] = mapped_column(Text, nullable=False)

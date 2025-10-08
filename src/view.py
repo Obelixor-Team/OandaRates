@@ -272,7 +272,9 @@ class View(QMainWindow):
                     try:
                         numeric_value = float(str(cell_data).replace("%", ""))
                         if numeric_value > 0:
-                            item.setForeground(QBrush(QColor(THEME["positive"])))  # Green
+                            item.setForeground(
+                                QBrush(QColor(THEME["positive"]))
+                            )  # Green
                         elif numeric_value < 0:
                             item.setForeground(QBrush(QColor(THEME["negative"])))  # Red
                     except ValueError:
