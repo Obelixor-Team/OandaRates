@@ -1,7 +1,9 @@
 import queue
 import threading
+import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
+from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
@@ -9,6 +11,8 @@ from apscheduler.schedulers.background import BackgroundScheduler  # type: ignor
 if TYPE_CHECKING:
     from .model import Model
     from .view import View
+
+logger = logging.getLogger(__name__)
 
 
 class UIUpdate(TypedDict):
@@ -30,12 +34,21 @@ class Presenter:
         self.filter_text: str = ""
         self.selected_category: str = "All"
         self.ui_update_queue: queue.Queue[UIUpdate] = queue.Queue()
+        self.scheduler: Optional[BackgroundScheduler] = None
+        self.executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent tasks
+
+    def shutdown(self) -> None:
+        if self.scheduler:
+            self.scheduler.shutdown(wait=False)
+            logger.info("Scheduler shut down.")
+        self.executor.shutdown(wait=True)
+        logger.info("ThreadPoolExecutor shut down.")
 
     # --- Event Handlers (called by View) ---
 
     def on_app_start(self):
         """Start initial data load and scheduler threads."""
-        threading.Thread(target=self._initial_load_job).start()
+        self.executor.submit(self._initial_load_job)
         self._start_scheduler()
 
     def on_manual_update(self):
@@ -43,12 +56,13 @@ class Presenter:
         self.ui_update_queue.put(
             {"type": "status", "payload": {"text": "Fetching new data from API..."}}
         )
-        threading.Thread(target=self._fetch_job, args=("manual",), daemon=True).start()
+        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
+        self.executor.submit(self._fetch_job, "manual")
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
         if not isinstance(filter_text, str):
-            # Optionally log an error or handle invalid input gracefully
+            logger.warning(f"Invalid type for filter_text: {type(filter_text)}")
             return
         self.filter_text = filter_text.lower()
         self._update_display()
@@ -68,7 +82,7 @@ class Presenter:
     def on_instrument_double_clicked(self, instrument_name: str):
         """Handle a double-click event on the table to show history."""
         if not isinstance(instrument_name, str):
-            # Optionally log an error or handle invalid input gracefully
+            logger.warning(f"Invalid type for instrument_name: {type(instrument_name)}")
             return
 
         self.view.set_status(f"Loading history for {instrument_name}...")
@@ -119,6 +133,14 @@ class Presenter:
 
     # --- Core Logic (UI-Thread Safe) ---
 
+    def _process_and_cache_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process and cache the raw data."""
+        if "financingRates" in data:
+            for rate in data["financingRates"]:
+                rate["longRate_pct"] = float(rate.get("longRate", 0.0)) * 100
+                rate["shortRate_pct"] = float(rate.get("shortRate", 0.0)) * 100
+        return data
+
     def process_ui_updates(self):
         """Check the queue for UI updates and apply them. Runs on the main thread."""
         try:
@@ -133,14 +155,21 @@ class Presenter:
                         payload.get("is_error", False),
                     )
                 elif msg_type == "data":
-                    self.raw_data = payload
+                    self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+                    self.raw_data = self._process_and_cache_data(payload)
                     self.latest_date = datetime.now().strftime("%Y-%m-%d")
                     self.view.set_update_time(self.latest_date)
                     self._update_display()
                 elif msg_type == "initial_data":
-                    self.latest_date, self.raw_data = payload
+                    self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+                    self.latest_date, raw_data = payload
+                    self.raw_data = self._process_and_cache_data(raw_data)
                     self.view.set_update_time(self.latest_date or "NEVER")
                     self._update_display()
+                elif msg_type == "show_progress":
+                    self.view.show_progress_bar()
+                elif msg_type == "hide_progress":
+                    self.view.hide_progress_bar()
 
         except queue.Empty:
             pass
@@ -161,8 +190,6 @@ class Presenter:
                 continue
             if self.filter_text and self.filter_text not in instrument.lower():
                 continue
-            long_rate = float(rate.get("longRate", 0.0)) * 100
-            short_rate = float(rate.get("shortRate", 0.0)) * 100
 
             currency = self.model._infer_currency(instrument, rate.get("currency", ""))
 
@@ -171,8 +198,8 @@ class Presenter:
                 category,  # Use the calculated category
                 currency,
                 rate.get("days", ""),
-                f"{long_rate:.2f}%",
-                f"{short_rate:.2f}%",
+                f"{rate.get('longRate_pct', 0.0):.2f}%",
+                f"{rate.get('shortRate_pct', 0.0):.2f}%",
                 rate.get("longCharge", ""),
                 rate.get("shortCharge", ""),
                 rate.get("units", ""),
@@ -188,6 +215,7 @@ class Presenter:
 
     def _initial_load_job(self):
         """Load initial data from DB or API."""
+        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
         self.ui_update_queue.put(
             {
                 "type": "status",
@@ -240,6 +268,7 @@ class Presenter:
                         },
                     }
                 )
+                self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
         elif source == "scheduled" or source == "initial":
             new_data = self.model.fetch_and_save_rates(save_to_db=True)
             if new_data:
@@ -262,6 +291,7 @@ class Presenter:
                         },
                     }
                 )
+                self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
 
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})
@@ -270,10 +300,12 @@ class Presenter:
 
     def _start_scheduler(self) -> None:
         try:
-            scheduler = BackgroundScheduler(timezone="America/New_York")
-            scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
-            scheduler.start()
+            self.scheduler = BackgroundScheduler(timezone="America/New_York")
+            self.scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
+            self.scheduler.start()
+            logger.info("Scheduler started successfully.")
         except Exception as e:
+            logger.exception("Scheduler failed to start.")
             self.ui_update_queue.put(
                 {
                     "type": "status",
@@ -286,6 +318,7 @@ class Presenter:
 
     def _scheduled_update_job(self):
         """Perform the scheduled update job."""
+        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
         self.ui_update_queue.put(
             {
                 "type": "status",

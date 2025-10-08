@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
@@ -10,6 +12,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QProgressBar,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -18,7 +21,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from PyQt6.QtGui import QBrush, QColor
-from PyQt6.QtCore import QSettings, Qt
+from PyQt6.QtCore import QSettings, Qt, QTimer
 
 from typing import TYPE_CHECKING, Optional, Dict
 
@@ -26,6 +29,8 @@ from .theme import THEME
 
 if TYPE_CHECKING:
     from .presenter import Presenter
+
+logger = logging.getLogger(__name__)
 
 
 class NumericTableWidgetItem(QTableWidgetItem):
@@ -135,6 +140,7 @@ class View(QMainWindow):
     def __init__(self, presenter: Optional["Presenter"] = None) -> None:
         super().__init__()
         self._presenter: Optional["Presenter"] = presenter
+        self._timer: Optional[QTimer] = None
         self.setWindowTitle("OANDA FINANCING TERMINAL v4.0")
         # self.setGeometry(100, 100, 1400, 900) # Removed to use saved geometry
         self._apply_stylesheet()
@@ -147,6 +153,9 @@ class View(QMainWindow):
             self.restoreGeometry(self.settings.value("geometry"))
         else:
             self.setGeometry(100, 100, 1400, 900)  # Default size if no settings saved
+
+    def set_timer(self, timer: QTimer) -> None:
+        self._timer = timer
 
     def set_presenter(self, presenter: "Presenter") -> None:
         self._presenter = presenter
@@ -216,6 +225,11 @@ class View(QMainWindow):
         self.update_time_label = QLabel("LAST UPDATE: NEVER")
         self.statusBar().addPermanentWidget(self.status_label)
         self.statusBar().addPermanentWidget(self.update_time_label)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 0)
+        self.progress_bar.setVisible(False)
+        self.statusBar().addPermanentWidget(self.progress_bar)
 
         # --- Layout Management ---
         control_layout.addWidget(QLabel("FILTER:"))
@@ -291,9 +305,11 @@ class View(QMainWindow):
         self, instrument_name: str, history_df: pd.DataFrame, stats: Dict[str, float]
     ) -> None:
         if not isinstance(history_df, pd.DataFrame) or history_df.empty:
+            logger.error(f"Invalid history_df provided for {instrument_name}")
             self.set_status("Invalid history data", is_error=True)
             return
         if not isinstance(stats, dict):
+            logger.error(f"Invalid stats provided for {instrument_name}")
             self.set_status("Invalid statistics data", is_error=True)
             return
         dialog = HistoryDialog(instrument_name, history_df, stats, self)
@@ -313,6 +329,14 @@ class View(QMainWindow):
         """Clear filter and category input fields."""
         self.filter_input.setText("")
         self.category_combo.setCurrentIndex(0)
+
+    def show_progress_bar(self):
+        """Show the progress bar."""
+        self.progress_bar.setVisible(True)
+
+    def hide_progress_bar(self):
+        """Hide the progress bar."""
+        self.progress_bar.setVisible(False)
 
     def _apply_stylesheet(self):
         qss = f"""
@@ -367,4 +391,6 @@ class View(QMainWindow):
 
     def closeEvent(self, event):
         self.settings.setValue("geometry", self.saveGeometry())
+        if self._timer:
+            self._timer.stop()
         super().closeEvent(event)
