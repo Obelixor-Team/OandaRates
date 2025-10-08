@@ -13,8 +13,8 @@ Based on the provided code review, here's an action plan to address the identifi
 
 ## Suggested Improvements and Next Steps:
 
-1.  **Configuration File**:
-    *   **Action**: Implement a `config.yaml` file for settings like `API_URL`, `DB_FILE`, and instrument categorization lists.
+1.  **Configuration File (Completed)**:
+    *   **Action**: Implemented `config.yaml` for `API_URL`, `HEADERS`, and `DB_FILE`. Instrument categorization lists will be moved to `config.yaml` as part of the next step.
 
 2.  **Robust Scheduling**:
     *   **Action**: Replace the `schedule` library with `APScheduler` for more reliable and feature-rich scheduling.
