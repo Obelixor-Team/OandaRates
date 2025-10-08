@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 
 import pandas as pd
 import requests
@@ -136,7 +136,7 @@ class Model:
         except ValueError:
             return None
 
-    def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict]]:
+    def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
         """Load the most recent financing rates from the database.
 
         Returns:

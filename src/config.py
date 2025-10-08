@@ -30,9 +30,14 @@ def validate_config(config: Dict) -> None:
 
 
 def load_config() -> Dict:
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
-        validate_config(config)
-    return config
+    try:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
+            validate_config(config)
+        return config
+    except FileNotFoundError:
+        raise FileNotFoundError("config.yaml not found. Please ensure the file exists.")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Error parsing config.yaml: {str(e)}")
 
 config = load_config()
