@@ -11,7 +11,7 @@ Based on the provided code review, here's an action plan to address the identifi
 2.  **Hardcoded Constants (Completed)**:
     *   **Action**: Moved `API_URL`, `HEADERS`, and `DB_FILE` from `model.py` to `config.yaml` and updated `model.py` to read from it.
 
-## Suggested Improvements and Next Steps:
+## Suggested Improvements and Next Steps (All Completed):
 
 1.  **Configuration File (Completed)**:
     *   **Action**: Implemented `config.yaml` for `API_URL`, `HEADERS`, `DB_FILE`, and instrument categorization lists.
