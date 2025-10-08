@@ -1,5 +1,4 @@
 import json
-import yaml
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -8,37 +7,7 @@ import requests
 from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Mapped, mapped_column
 
-
-# Validate and load configuration
-def validate_config(config: Dict) -> None:
-    """Validate the configuration file for required keys.
-
-    Args:
-        config: The loaded configuration dictionary.
-
-    Raises:
-        ValueError: If a required key is missing.
-    """
-    required_keys = [
-        "api.url",
-        "api.headers",
-        "database.file",
-        "categories.currencies",
-        "categories.metals",
-        "categories.commodities",
-        "categories.indices",
-        "categories.bonds",
-        "categories.currency_suffixes",
-    ]
-    for key in required_keys:
-        parent, child = key.split(".")
-        if parent not in config or child not in config[parent]:
-            raise ValueError(f"Missing required config key: {key}")
-
-
-with open("config.yaml", "r") as f:
-    config = yaml.safe_load(f)
-    validate_config(config)
+from .config import config
 
 # Constants
 API_URL = config["api"]["url"]
@@ -167,31 +136,35 @@ class Model:
         except ValueError:
             return None
 
-    def get_latest_rates(self):
+    def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict]]:
         """Load the most recent financing rates from the database.
 
         Returns:
-            tuple: (date, data) or (None, None) if no data is found.
+            tuple[Optional[str], Optional[Dict]]: (date, data) or (None, None) if no data is found.
 
+        Raises:
+            sqlalchemy.exc.SQLAlchemyError: If database query fails.
         """
         session = Session()
         try:
             rate = session.query(Rate).order_by(Rate.date.desc()).first()
             if rate:
-                return rate.date, json.loads(rate.raw_data)
+                return str(rate.date), json.loads(rate.raw_data)
             return None, None
         finally:
             session.close()
 
-    def get_instrument_history(self, instrument_name: str):
+    def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument.
 
         Args:
             instrument_name: The name of the instrument.
 
         Returns:
-            pandas.DataFrame: A DataFrame with the history.
+            pd.DataFrame: A DataFrame with the history.
 
+        Raises:
+            sqlalchemy.exc.SQLAlchemyError: If database query fails.
         """
         session = Session()
         history = []

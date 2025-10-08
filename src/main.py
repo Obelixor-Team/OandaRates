@@ -8,7 +8,7 @@ from .presenter import Presenter
 from .view import View
 
 from typing import Optional
-from .model import config # Import config from model.py
+from .config import config # Import config from config.py
 
 
 def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> View:

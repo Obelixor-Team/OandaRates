@@ -1,7 +1,7 @@
 import queue
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
@@ -9,6 +9,10 @@ from apscheduler.schedulers.background import BackgroundScheduler  # type: ignor
 if TYPE_CHECKING:
     from .model import Model
     from .view import View
+
+class UIUpdate(TypedDict):
+    type: str
+    payload: Dict[str, Any]
 
 
 class Presenter:
@@ -24,7 +28,7 @@ class Presenter:
         self.raw_data: Dict[str, Any] = {}
         self.filter_text: str = ""
         self.selected_category: str = "All"
-        self.ui_update_queue: queue.Queue[Dict[str, Any]] = queue.Queue()
+        self.ui_update_queue: queue.Queue[UIUpdate] = queue.Queue()
 
     # --- Event Handlers (called by View) ---
 
