@@ -1,5 +1,19 @@
 import yaml
 from typing import Dict
+import logging
+import logging.config
+
+
+def setup_logging():
+    """Set up logging for the application."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler("/home/skum/Dev/PycharmProjects/OandaRates/oanda_terminal.log"),
+            logging.StreamHandler(),
+        ],
+    )
 
 
 def validate_config(config: Dict) -> None:
@@ -27,7 +41,7 @@ def validate_config(config: Dict) -> None:
     for key in required_keys:
         parent, child = key.split(".")
         if parent not in config or child not in config[parent]:
-            raise ValueError(f"Missing required config key: {key}")
+            raise ValueError(f'Missing required config key: "{key}" in config.yaml')
 
 
 def load_config() -> Dict:
@@ -43,3 +57,4 @@ def load_config() -> Dict:
 
 
 config = load_config()
+setup_logging()

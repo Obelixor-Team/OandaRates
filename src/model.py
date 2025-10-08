@@ -1,10 +1,11 @@
 import json
 from datetime import datetime
 from typing import Dict, Optional, Any
+import logging
 
 import pandas as pd
 import requests
-from sqlalchemy import Column, String, Text, create_engine
+from sqlalchemy import Column, String, Text, create_engine, exc
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Mapped, mapped_column
 
 from .config import config
@@ -13,6 +14,7 @@ from .config import config
 API_URL = config["api"]["url"]
 HEADERS = config["api"]["headers"]
 DB_FILE = config["database"]["file"]
+logger = logging.getLogger(__name__)
 
 
 # Database setup
@@ -24,7 +26,7 @@ class Rate(Base):
     """SQLAlchemy model for storing OANDA financing rates."""
 
     __tablename__ = "rates"
-    date = Column(String, primary_key=True)
+    date = Column(String, primary_key=True, index=True)
     raw_data: Mapped[str] = mapped_column(Text, nullable=False)
 
 
@@ -35,6 +37,12 @@ Session = sessionmaker(bind=engine)
 
 class Model:
     """Manages data operations, including fetching from OANDA API and database."""
+
+    def __init__(self):
+        self.session = Session()
+
+    def __del__(self):
+        self.session.close()
 
     def categorize_instrument(self, instrument: str) -> str:
         """Categorizes an instrument into a specific group based on its name.
@@ -114,30 +122,32 @@ class Model:
             data = response.json()
 
             if "financingRates" not in data:
+                logger.warning("API response did not contain 'financingRates' key.")
                 return None
 
             if save_to_db:
                 today = datetime.now().strftime("%Y-%m-%d")
-                session = Session()
                 try:
-                    existing = session.query(Rate).filter_by(date=today).first()
+                    existing = self.session.query(Rate).filter_by(date=today).first()
                     raw_data_str = json.dumps(data)
                     if existing:
                         existing.raw_data = raw_data_str
                     else:
                         new_rate = Rate(date=today, raw_data=raw_data_str)
-                        session.add(new_rate)
-                    session.commit()
-                except Exception:
-                    session.rollback()
+                        self.session.add(new_rate)
+                    self.session.commit()
+                except exc.SQLAlchemyError as e:
+                    logger.error(f"Database error occurred: {e}")
+                    self.session.rollback()
+                    logger.info("Database session rolled back.")
                     return None
-                finally:
-                    session.close()
             return data
 
-        except requests.exceptions.RequestException:
+        except requests.exceptions.RequestException as e:
+            logger.error(f"API request failed: {e}")
             return None
-        except ValueError:
+        except ValueError as e:
+            logger.error(f"Failed to parse API response: {e}")
             return None
 
     def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
@@ -149,14 +159,10 @@ class Model:
         Raises:
             sqlalchemy.exc.SQLAlchemyError: If database query fails.
         """
-        session = Session()
-        try:
-            rate = session.query(Rate).order_by(Rate.date.desc()).first()
-            if rate:
-                return str(rate.date), json.loads(rate.raw_data)
-            return None, None
-        finally:
-            session.close()
+        rate = self.session.query(Rate).order_by(Rate.date.desc()).first()
+        if rate:
+            return str(rate.date), json.loads(rate.raw_data)
+        return None, None
 
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument.
@@ -170,21 +176,17 @@ class Model:
         Raises:
             sqlalchemy.exc.SQLAlchemyError: If database query fails.
         """
-        session = Session()
         history = []
-        try:
-            rates: list[Rate] = session.query(Rate).order_by(Rate.date.asc()).all()
-            for rate_entry in rates:
-                data = json.loads(str(rate_entry.raw_data))
-                for instrument_data in data.get("financingRates", []):
-                    if instrument_data.get("instrument") == instrument_name:
-                        history.append(
-                            {
-                                "date": rate_entry.date,
-                                "long_rate": instrument_data.get("longRate"),
-                                "short_rate": instrument_data.get("shortRate"),
-                            }
-                        )
-            return pd.DataFrame(history)
-        finally:
-            session.close()
+        rates: list[Rate] = self.session.query(Rate).order_by(Rate.date.asc()).all()
+        for rate_entry in rates:
+            data = json.loads(str(rate_entry.raw_data))
+            for instrument_data in data.get("financingRates", []):
+                if instrument_data.get("instrument") == instrument_name:
+                    history.append(
+                        {
+                            "date": rate_entry.date,
+                            "long_rate": instrument_data.get("longRate"),
+                            "short_rate": instrument_data.get("shortRate"),
+                        }
+                    )
+        return pd.DataFrame(history)

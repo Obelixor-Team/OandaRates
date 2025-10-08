@@ -1,5 +1,8 @@
 import re
 from typing import Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def validate_color(color: str) -> bool:
@@ -29,4 +32,5 @@ THEME: Dict[str, str] = {
 
 for key, value in THEME.items():
     if not validate_color(value):
-        raise ValueError(f"Invalid color format for {key}: {value}")
+        logger.warning(f"Invalid color format for {key}: {value}. Falling back to #000000")
+        THEME[key] = "#000000"
