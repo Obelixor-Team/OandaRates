@@ -4,13 +4,11 @@ Based on the provided code review, here's an action plan to address the identifi
 
 ## Critical Issues to Address Immediately:
 
-1.  **Empty Log File (`oanda_instrument_log.txt`)**:
-    *   **Action**: Verify the log file path, permissions, and ensure logging statements are being triggered. Test logging in a controlled environment.
+1.  **Type Ignoring in `model.py`**:
+    *   **Issue**: The `# type: ignore` comments in `fetch_and_save_rates` are present due to `mypy`'s limitations in understanding SQLAlchemy ORM types without additional configuration (e.g., `sqlalchemy-stubs`).
+    *   **Action**: While a proper long-term solution would involve setting up `sqlalchemy-stubs` and configuring `mypy` accordingly, for now, these comments are necessary to avoid `mypy` errors. This item will remain here as a reminder for future improvement, but no immediate code change will be made to remove the `type: ignore` comments themselves.
 
-2.  **Type Ignoring in `model.py`**:
-    *   **Action**: Investigate the root cause of `# type: ignore` comments in `fetch_and_save_rates` (e.g., missing type hints in SQLAlchemy models) and add proper type annotations.
-
-3.  **Hardcoded Constants**:
+2.  **Hardcoded Constants**:
     *   **Action**: Move `API_URL`, `HEADERS`, and `DB_FILE` from `model.py` to a configuration file (e.g., `config.yaml`) or environment variables.
 
 ## Suggested Improvements and Next Steps:
