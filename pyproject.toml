@@ -23,6 +23,7 @@ dependencies = [
     "matplotlib",
     "pandas",
     "pytz",
+    "PyYAML",
 ]
 
 [project.optional-dependencies]
@@ -35,6 +36,7 @@ dev = [
     "pyqt6-stubs",
     "bandit",
     "radon",
+    "types-PyYAML",
 ]
 
 [build-system]

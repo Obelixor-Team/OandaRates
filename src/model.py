@@ -1,4 +1,5 @@
 import json
+import yaml
 
 from datetime import datetime
 
@@ -7,19 +8,14 @@ import requests
 from sqlalchemy import Column, String, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-# Setup logging
-
+# Load configuration
+with open("config.yaml", "r") as f:
+    config = yaml.safe_load(f)
 
 # Constants
-API_URL = "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1"
-HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-        "(KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
-    ),
-    "Accept": "application/json, text/plain, */*",
-}
-DB_FILE = "oanda_rates.db"
+API_URL = config["api"]["url"]
+HEADERS = config["api"]["headers"]
+DB_FILE = config["database"]["file"]
 
 
 # Database setup
