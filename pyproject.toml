@@ -53,5 +53,16 @@ select = ["E", "F", "W", "I", "C", "N", "D", "B", "A", "SIM", "UP", "PL"]
 ignore = []
 
 [tool.mypy]
+python_version = "3.11"
 strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "src.*"
 ignore_missing_imports = true

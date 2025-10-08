@@ -176,9 +176,9 @@ class Model:
                 try:
                     existing = session.query(Rate).filter_by(date=today).first()
                     if existing:
-                        existing.raw_data = json.dumps(data)  # type: ignore
+                        existing.raw_data = json.dumps(data)  # type: ignore  # type: ignore
                     else:
-                        new_rate = Rate(date=today, raw_data=json.dumps(data))  # type: ignore
+                        new_rate = Rate(date=today, raw_data=json.dumps(data))  # type: ignore  # type: ignore
                         session.add(new_rate)
                     session.commit()
                     logging.info(f"Successfully fetched and saved data for {today}.")

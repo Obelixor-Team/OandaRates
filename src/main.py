@@ -3,9 +3,9 @@ import sys
 from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import QApplication
 
-from model import Model
-from presenter import Presenter
-from view import View
+from .model import Model
+from .presenter import Presenter
+from .view import View
 
 if __name__ == "__main__":
     """The main entry point for the PyQt6 application."""

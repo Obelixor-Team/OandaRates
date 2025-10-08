@@ -139,13 +139,9 @@ class Presenter:
         """Filter the current data and update the view's table."""
         if not self.raw_data or "financingRates" not in self.raw_data:
             self.view.update_table([])
-            print("No raw data or financingRates found.")  # Debug print
             return
 
         filtered_data = []
-        print(
-            f"Raw data financingRates count: {len(self.raw_data.get('financingRates', []))}"
-        )  # Debug print
         for rate in self.raw_data.get("financingRates", []):
             instrument = rate.get("instrument", "")
             category = self.model.categorize_instrument(instrument)
@@ -215,8 +211,6 @@ class Presenter:
             ]
             filtered_data.append(row_data)
 
-        print(f"Filtered data count: {len(filtered_data)}")  # Debug print
-        # print(f"Filtered data: {filtered_data}") # Uncomment for detailed debug
         self.view.update_table(filtered_data)
         self.view.set_status(
             f"Display updated. Showing {len(filtered_data)} instruments."

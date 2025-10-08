@@ -8,9 +8,12 @@ A desktop application built with Python and PyQt6 to fetch, store, and display O
 *   **Local Data Storage:** Stores historical rate data in a SQLite database for persistent access.
 *   **Interactive GUI:** A modern, terminal-themed graphical user interface built with PyQt6.
 *   **Filtering & Categorization:** Filter instruments by text search or pre-defined categories (Forex, Indices, Commodities, Metals, CFDs, Bonds, Other).
-*   **Automated Updates:** Automatically updates data daily at 10:30 PM GMT.
-*   **Historical Data Visualization:** Double-click an instrument to view a line plot of its historical rates and key statistics.
-*   **Percentage Display:** Long and Short rates are displayed as percentages with two decimal places.
+*   **Automated Updates:** Automatically updates data daily at 10:30 PM GMT (market close) and saves to the database.
+*   **Manual Updates:** Users can manually fetch and display the latest rates, but these are *not* saved to the database to preserve the integrity of settled rates.
+*   **Sortable Columns:** Click on column headers to sort data in ascending or descending order.
+*   **Color-coded Rates & Charges:** Long/Short Rate and Charge columns are color-coded (green for positive, red for negative) for quick visual analysis.
+*   **Enhanced Historical Statistics:** Double-click an instrument to view a line plot of its historical rates, along with comprehensive statistics including Mean, Median, Standard Deviation, Min/Max, and Average Daily Change for both long and short rates.
+*   **Window Persistence:** The application remembers and restores the main window's size and position upon reopening.
 
 ## Tech Stack
 
@@ -21,7 +24,8 @@ A desktop application built with Python and PyQt6 to fetch, store, and display O
 *   **Pandas:** For data manipulation and statistical analysis.
 *   **Matplotlib:** For plotting historical data.
 *   **Schedule:** For scheduling automated data updates.
-*   **pytz:** For accurate timezone handling in scheduling.
+*   **Bandit:** Security linter.
+*   **Radon:** Code complexity analysis.
 
 ## Setup and Running
 
@@ -52,19 +56,43 @@ source .venv/bin/activate
 
 ### 4. Install Dependencies
 
-Install the project dependencies using `pip` and the `pyproject.toml` file:
+Install the project's core dependencies:
 
 ```bash
 pip install .
 ```
 
+For development, install optional dependencies including code quality tools:
+
+```bash
+pip install .[dev]
+```
+
 ### 5. Run the Application
 
 ```bash
-python src/main.py
+make run
 ```
 
 The application window will appear, displaying the OANDA financing rates. Data will automatically update daily at 10:30 PM GMT.
+
+## Code Quality
+
+This project uses several tools to maintain code quality. A `Makefile` is provided to automate running these checks.
+
+### Available Commands:
+
+*   **`make all`**: Runs all code quality checks and tests.
+*   **`make check`**: Runs all code quality checks.
+*   **`make format`**: Runs `black` to format the code.
+*   **`make lint`**: Runs `ruff` to lint the code.
+*   **`make typecheck`**: Runs `mypy` to type check the code.
+*   **`make security`**: Runs `bandit` to check for security issues.
+*   **`make complexity`**: Runs `radon` to check code complexity.
+*   **`make test`**: Runs `pytest` to execute tests.
+*   **`make clean`**: Cleans up generated files (e.g., `__pycache__`, `.mypy_cache`, build artifacts).
+*   **`make run`**: Runs the application.
+*   **`make help`**: Displays this help message.
 
 ## Screenshot
 
