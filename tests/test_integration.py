@@ -55,8 +55,8 @@ def mock_model():
 def main_window(app, mock_model):
     with patch("src.model.Model", return_value=mock_model):
         mock_presenter_instance = MagicMock()
-        view_instance = run_app(app, mock_presenter=mock_presenter_instance)
-        yield view_instance, mock_presenter_instance
+        view, timer, presenter = run_app(app, mock_presenter=mock_presenter_instance)
+        yield view, presenter
 
 
 def test_manual_update_flow(main_window, mock_model, qtbot):

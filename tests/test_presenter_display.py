@@ -134,7 +134,9 @@ def test_update_display_no_raw_data(presenter_instance, mock_view):
 
 
 def test_update_display_with_raw_data_no_filter(presenter_instance, mock_view):
-    presenter_instance.raw_data = presenter_instance._process_and_cache_data(SAMPLE_RAW_DATA)
+    presenter_instance.raw_data = presenter_instance._process_and_cache_data(
+        SAMPLE_RAW_DATA
+    )
     presenter_instance.filter_text = ""
     presenter_instance.selected_category = "All"
     presenter_instance._update_display()
@@ -155,7 +157,9 @@ def test_update_display_with_raw_data_no_filter(presenter_instance, mock_view):
 
 
 def test_update_display_with_filter_text(presenter_instance, mock_view):
-    presenter_instance.raw_data = presenter_instance._process_and_cache_data(SAMPLE_RAW_DATA)
+    presenter_instance.raw_data = presenter_instance._process_and_cache_data(
+        SAMPLE_RAW_DATA
+    )
     presenter_instance.filter_text = "eur"
     presenter_instance.selected_category = "All"
     presenter_instance._update_display()
@@ -171,7 +175,9 @@ def test_update_display_with_filter_text(presenter_instance, mock_view):
 
 
 def test_update_display_with_selected_category(presenter_instance, mock_view):
-    presenter_instance.raw_data = presenter_instance._process_and_cache_data(SAMPLE_RAW_DATA)
+    presenter_instance.raw_data = presenter_instance._process_and_cache_data(
+        SAMPLE_RAW_DATA
+    )
     presenter_instance.filter_text = ""
     presenter_instance.selected_category = "Metals"
     presenter_instance._update_display()
@@ -186,7 +192,9 @@ def test_update_display_with_selected_category(presenter_instance, mock_view):
 
 
 def test_update_display_with_filter_and_category(presenter_instance, mock_view):
-    presenter_instance.raw_data = presenter_instance._process_and_cache_data(SAMPLE_RAW_DATA)
+    presenter_instance.raw_data = presenter_instance._process_and_cache_data(
+        SAMPLE_RAW_DATA
+    )
     presenter_instance.filter_text = "us"
     presenter_instance.selected_category = "Indices"
     presenter_instance._update_display()
@@ -201,40 +209,42 @@ def test_update_display_with_filter_and_category(presenter_instance, mock_view):
 
 
 def test_update_display_currency_inference(presenter_instance, mock_view):
-    presenter_instance.raw_data = presenter_instance._process_and_cache_data({
-        "financingRates": [
-            {
-                "instrument": "AUD/CAD",
-                "longRate": 0.01,
-                "shortRate": -0.02,
-                "currency": "CAD",
-                "days": 1,
-                "longCharge": "",
-                "shortCharge": "",
-                "units": "",
-            },
-            {
-                "instrument": "GBP_USD",
-                "longRate": 0.01,
-                "shortRate": -0.02,
-                "currency": "USD",
-                "days": 1,
-                "longCharge": "",
-                "shortCharge": "",
-                "units": "",
-            },
-            {
-                "instrument": "UNKNOWN_CURRENCY",
-                "longRate": 0.01,
-                "shortRate": -0.02,
-                "currency": "JPY",
-                "days": 1,
-                "longCharge": "",
-                "shortCharge": "",
-                "units": "",
-            },
-        ]
-    })
+    presenter_instance.raw_data = presenter_instance._process_and_cache_data(
+        {
+            "financingRates": [
+                {
+                    "instrument": "AUD/CAD",
+                    "longRate": 0.01,
+                    "shortRate": -0.02,
+                    "currency": "CAD",
+                    "days": 1,
+                    "longCharge": "",
+                    "shortCharge": "",
+                    "units": "",
+                },
+                {
+                    "instrument": "GBP_USD",
+                    "longRate": 0.01,
+                    "shortRate": -0.02,
+                    "currency": "USD",
+                    "days": 1,
+                    "longCharge": "",
+                    "shortCharge": "",
+                    "units": "",
+                },
+                {
+                    "instrument": "UNKNOWN_CURRENCY",
+                    "longRate": 0.01,
+                    "shortRate": -0.02,
+                    "currency": "JPY",
+                    "days": 1,
+                    "longCharge": "",
+                    "shortCharge": "",
+                    "units": "",
+                },
+            ]
+        }
+    )
     presenter_instance.filter_text = ""
     presenter_instance.selected_category = "All"
     presenter_instance._update_display()

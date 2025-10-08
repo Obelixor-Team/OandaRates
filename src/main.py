@@ -8,13 +8,15 @@ from .model import Model
 from .presenter import Presenter
 from .view import View
 
-from typing import Optional
+from typing import Optional, Tuple
 from .config import config  # Import config from config.py
 
 logger = logging.getLogger(__name__)
 
 
-def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> View:
+def run_app(
+    app: QApplication, mock_presenter: Optional[Presenter] = None
+) -> Tuple[View, QTimer, Presenter]:
     """Initialize the MVP components and start the application.
 
     Args:
@@ -57,13 +59,14 @@ def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> Vi
 
 
 if __name__ == "__main__":
+    presenter_instance: Optional[Presenter] = None
     try:
         app = QApplication(sys.argv)
         view_instance, timer, presenter_instance = run_app(app)
         sys.exit(app.exec())
-    except Exception as e:
+    except Exception:
         logging.exception("Unhandled exception caught.")
     finally:
-        if 'presenter_instance' in locals() and presenter_instance:
+        if "presenter_instance" in locals() and presenter_instance:
             presenter_instance.shutdown()
         sys.exit(1)

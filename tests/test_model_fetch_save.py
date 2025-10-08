@@ -70,7 +70,9 @@ def test_fetch_and_save_rates_success(
     # Assert
     assert result == {"financingRates": [{"instrument": "EUR_USD"}]}
     mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.return_value.filter_by.assert_called_once_with(date="2023-01-01")
+    model_instance.session.query.return_value.filter_by.assert_called_once_with(
+        date="2023-01-01"
+    )
     model_instance.session.add.assert_called_once()
     model_instance.session.commit.assert_called_once()
 
@@ -176,7 +178,9 @@ def test_fetch_and_save_rates_update_existing(
     # Assert
     assert result == {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]}
     mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.return_value.filter_by.assert_called_once_with(date="2023-01-01")
+    model_instance.session.query.return_value.filter_by.assert_called_once_with(
+        date="2023-01-01"
+    )
     assert existing_rate.raw_data == json.dumps(
         {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]}
     )
@@ -207,7 +211,9 @@ def test_fetch_and_save_rates_no_financing_rates_in_response(
 
 def test_get_latest_rates_no_data(model_instance):
     # Arrange
-    model_instance.session.query.return_value.order_by.return_value.first.return_value = None
+    model_instance.session.query.return_value.order_by.return_value.first.return_value = (
+        None
+    )
 
     # Act
     date, data = model_instance.get_latest_rates()
@@ -223,7 +229,9 @@ def test_get_latest_rates_with_data(model_instance):
     mock_rate = MagicMock()
     mock_rate.date = "2023-01-01"
     mock_rate.raw_data = json.dumps({"financingRates": [{"instrument": "EUR_USD"}]})
-    model_instance.session.query.return_value.order_by.return_value.first.return_value = mock_rate
+    model_instance.session.query.return_value.order_by.return_value.first.return_value = (
+        mock_rate
+    )
 
     # Act
     date, data = model_instance.get_latest_rates()
@@ -236,7 +244,9 @@ def test_get_latest_rates_with_data(model_instance):
 
 def test_get_instrument_history_no_data(model_instance):
     # Arrange
-    model_instance.session.query.return_value.order_by.return_value.all.return_value = []
+    model_instance.session.query.return_value.order_by.return_value.all.return_value = (
+        []
+    )
 
     # Act
     history_df = model_instance.get_instrument_history("EUR_USD")

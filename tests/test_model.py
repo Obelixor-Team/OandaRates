@@ -25,7 +25,6 @@ def model(db_session):
         yield Model()
 
 
-
 def test_fetch_and_save_rates_success(model, db_session):
     mock_response = MagicMock()
     mock_response.status_code = 200

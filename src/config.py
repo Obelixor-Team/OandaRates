@@ -10,7 +10,9 @@ def setup_logging():
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler("/home/skum/Dev/PycharmProjects/OandaRates/oanda_terminal.log"),
+            logging.FileHandler(
+                "/home/skum/Dev/PycharmProjects/OandaRates/oanda_terminal.log"
+            ),
             logging.StreamHandler(),
         ],
     )

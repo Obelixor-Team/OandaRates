@@ -1,5 +1,4 @@
 import queue
-import threading
 import logging
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
@@ -13,6 +12,8 @@ if TYPE_CHECKING:
     from .view import View
 
 logger = logging.getLogger(__name__)
+
+MAX_FILTER_LENGTH = 100
 
 
 class UIUpdate(TypedDict):
@@ -64,6 +65,14 @@ class Presenter:
         if not isinstance(filter_text, str):
             logger.warning(f"Invalid type for filter_text: {type(filter_text)}")
             return
+        if len(filter_text) > MAX_FILTER_LENGTH:
+            logger.warning(
+                f"Filter text exceeds maximum length of {MAX_FILTER_LENGTH} characters."
+            )
+            self.view.set_status(
+                f"Filter text too long (max {MAX_FILTER_LENGTH} chars)", is_error=True
+            )
+            filter_text = filter_text[:MAX_FILTER_LENGTH]
         self.filter_text = filter_text.lower()
         self._update_display()
 
@@ -81,8 +90,9 @@ class Presenter:
 
     def on_instrument_double_clicked(self, instrument_name: str):
         """Handle a double-click event on the table to show history."""
-        if not isinstance(instrument_name, str):
-            logger.warning(f"Invalid type for instrument_name: {type(instrument_name)}")
+        if not isinstance(instrument_name, str) or not instrument_name.strip():
+            logger.warning(f"Invalid instrument_name: '{instrument_name}'")
+            self.view.set_status("Invalid instrument name provided.", is_error=True)
             return
 
         self.view.set_status(f"Loading history for {instrument_name}...")
@@ -301,7 +311,9 @@ class Presenter:
     def _start_scheduler(self) -> None:
         try:
             self.scheduler = BackgroundScheduler(timezone="America/New_York")
-            self.scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
+            self.scheduler.add_job(
+                self._scheduled_update_job, "cron", hour=17, minute=30
+            )
             self.scheduler.start()
             logger.info("Scheduler started successfully.")
         except Exception as e:

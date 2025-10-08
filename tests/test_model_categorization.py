@@ -1,5 +1,6 @@
 from src.model import Model
 
+
 def test_categorize_instrument():
     model_instance = Model()
     # Forex
@@ -21,7 +22,6 @@ def test_categorize_instrument():
 
     # Bonds
     assert model_instance.categorize_instrument("DE10YB/EUR") == "Bonds"
-
 
     # CFDs
     assert model_instance.categorize_instrument("A3M_CFD.ES") == "CFDs"

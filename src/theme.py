@@ -32,5 +32,7 @@ THEME: Dict[str, str] = {
 
 for key, value in THEME.items():
     if not validate_color(value):
-        logger.warning(f"Invalid color format for {key}: {value}. Falling back to #000000")
+        logger.warning(
+            f"Invalid color format for {key}: {value}. Falling back to #000000"
+        )
         THEME[key] = "#000000"

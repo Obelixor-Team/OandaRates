@@ -75,12 +75,10 @@ Based on the code review provided for the OANDA Financing Terminal application, 
   - Benefit: Enhances usability for all users.
 
 #### **6. Security**
-- [ ] **Secure API Headers in `config.py`** (High Priority, Medium Effort)
-  - Move sensitive data (e.g., `api.headers`) to environment variables using `os.getenv` or `python-dotenv`.
-  - Example: `HEADERS = {"Authorization": os.getenv("OANDA_API_KEY")}`.
-  - Benefit: Prevents exposure of sensitive information in source code.
+- [x] **Secure API Headers in `config.py`** (High Priority, Medium Effort) - **INVALID**
+  - *This task was marked as invalid because the application does not use any sensitive API keys. The headers only contain non-sensitive information like User-Agent and Accept.*
 
-- [ ] **Validate User Inputs in `presenter.py`** (Medium Priority, Low Effort)
+- [x] **Validate User Inputs in `presenter.py`** (Medium Priority, Low Effort)
   - Add validation for `filter_text` and `instrument_name` to prevent empty or malformed inputs.
   - Benefit: Reduces risk of errors or potential injection attacks.
 
