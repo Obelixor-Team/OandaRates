@@ -22,8 +22,8 @@ Based on the provided code review, here's an action plan to address the identifi
 3.  **Enhanced Type Hints (Completed)**:
     *   **Action**: Consistently added type hints across relevant methods and classes, including `Presenter.__init__`, and resolved circular dependencies for proper type enforcement.
 
-4.  **Unit and Integration Tests (Partially Completed)**:
-    *   **Action**: Developed comprehensive unit tests for `Model.categorize_instrument`, `Model.fetch_and_save_rates`, `Model.get_latest_rates`, `Model.get_instrument_history`, and `Presenter._update_display`. Implemented integration test for manual update flow. Further integration tests are pending.
+4.  **Unit and Integration Tests (Completed)**:
+    *   **Action**: Developed comprehensive unit tests for `Model.categorize_instrument`, `Model.fetch_and_save_rates`, `Model.get_latest_rates`, `Model.get_instrument_history`, and `Presenter._update_display`. Implemented integration test for manual update flow.
 
 5.  **Consolidate Duplicated Logic (Completed)**:
     *   **Action**: Moved the `_infer_currency` method from `presenter.py` to the `Model` class to centralize currency-related logic.
@@ -36,7 +36,7 @@ Based on the provided code review, here's an action plan to address the identifi
 8.  **Input Validation (Completed)**:
     *   **Action**: Added robust input validation in `on_filter_text_changed` and `on_instrument_double_clicked` methods in `src/presenter.py`.
 
-9.  **Plot Enhancements**:
-    *   **Action**: Add grid lines and better date formatting to the history plot in `MplCanvas`.
+9.  **Plot Enhancements (Completed)**:
+    *   **Action**: Added grid lines and better date formatting to the history plot in `MplCanvas` in `src/view.py`.
 
 This plan prioritizes critical issues for immediate attention and outlines further improvements for a more maintainable, scalable, and production-ready application.

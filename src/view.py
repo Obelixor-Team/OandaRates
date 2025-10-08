@@ -1,6 +1,7 @@
 import pandas as pd
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import matplotlib.dates as mdates
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -117,6 +118,8 @@ class HistoryDialog(QDialog):
             sc.axes.legend()
             sc.axes.set_xlabel("Date")
             sc.axes.set_ylabel("Rate (%)")
+            sc.axes.grid(True, linestyle="--", alpha=0.7, color=THEME["text"])
+            sc.axes.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
             sc.figure.autofmt_xdate()
             sc.figure.tight_layout()  # Add tight layout for better plot spacing
             layout.addWidget(sc)
