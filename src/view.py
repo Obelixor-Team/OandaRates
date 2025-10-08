@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import (
     QSizePolicy,
 )
 from PyQt6.QtGui import QBrush, QColor
+from PyQt6.QtCore import QSettings
 
 
 # --- Matplotlib Canvas for plotting ---
@@ -109,10 +110,17 @@ class View(QMainWindow):
         super().__init__()
         self.presenter = presenter
         self.setWindowTitle("OANDA FINANCING TERMINAL v4.0")
-        self.setGeometry(100, 100, 1400, 900)
+        # self.setGeometry(100, 100, 1400, 900) # Removed to use saved geometry
         self._apply_stylesheet()
         self._setup_ui()
         self.presenter.on_app_start()
+
+        # Load window settings
+        self.settings = QSettings("OandaRates", "OandaFinancingTerminal")
+        if self.settings.contains("geometry"):
+            self.restoreGeometry(self.settings.value("geometry"))
+        else:
+            self.setGeometry(100, 100, 1400, 900)  # Default size if no settings saved
 
     def _setup_ui(self):
         # --- Central Widget and Layouts ---
@@ -289,3 +297,7 @@ class View(QMainWindow):
             }
         """
         self.setStyleSheet(qss)
+
+    def closeEvent(self, event):
+        self.settings.setValue("geometry", self.saveGeometry())
+        super().closeEvent(event)
