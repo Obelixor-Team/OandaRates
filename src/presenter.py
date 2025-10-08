@@ -230,7 +230,7 @@ class Presenter:
                     {
                         "type": "status",
                         "payload": {
-                            "text": "Manual update failed. Check logs.",
+                            "text": "Manual update failed.",
                             "is_error": True,
                         },
                     }
@@ -252,7 +252,7 @@ class Presenter:
                     {
                         "type": "status",
                         "payload": {
-                            "text": "API fetch failed. Check logs.",
+                            "text": "API fetch failed.",
                             "is_error": True,
                         },
                     }
@@ -263,10 +263,18 @@ class Presenter:
 
     # --- Scheduler Logic ---
 
-    def _start_scheduler(self):
-        scheduler = BackgroundScheduler(timezone="America/New_York")
-        scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
-        scheduler.start()
+    def _start_scheduler(self) -> None:
+        try:
+            scheduler = BackgroundScheduler(timezone="America/New_York")
+            scheduler.add_job(self._scheduled_update_job, "cron", hour=17, minute=30)
+            scheduler.start()
+        except Exception as e:
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": f"Scheduler failed to start: {str(e)}", "is_error": True},
+                }
+            )
 
     def _scheduled_update_job(self):
         """Perform the scheduled update job."""

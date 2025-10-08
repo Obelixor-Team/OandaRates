@@ -1,7 +1,7 @@
 import json
 import yaml
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Optional
 
 import pandas as pd
 import requests
@@ -67,8 +67,15 @@ Session = sessionmaker(bind=engine)
 class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
-    def categorize_instrument(self, instrument):
-        """Categorizes an instrument into a specific group based on its name."""
+    def categorize_instrument(self, instrument: str) -> str:
+        """Categorizes an instrument into a specific group based on its name.
+
+        Args:
+            instrument: The name of the instrument.
+
+        Returns:
+            str: The category of the instrument (e.g., 'Forex', 'Metals').
+        """
         instrument_lower = instrument.lower().replace("/", "_")
 
         # Forex
@@ -114,18 +121,22 @@ class Model:
                 return currency
         return api_currency
 
-    def fetch_and_save_rates(self, save_to_db: bool = True):
-        """Fetch financing rates from the OANDA API and save them to the database.
+    def fetch_and_save_rates(self, save_to_db: bool = True) -> Optional[Dict]:
+        """Fetch financing rates from the OANDA API and optionally save to the database.
 
         Args:
             save_to_db: Whether to save the fetched data to the database.
 
         Returns:
-            dict: The fetched data, or None on failure.
+            Optional[Dict]: The fetched data, or None on failure.
 
+        Raises:
+            requests.exceptions.RequestException: If the API request fails.
+            ValueError: If the API response is malformed.
+            sqlalchemy.exc.SQLAlchemyError: If database operations fail.
         """
         try:
-            response = requests.get(API_URL, headers=HEADERS, timeout=10)
+            response = requests.get(API_URL, headers=HEADERS, timeout=config.get("api", {}).get("timeout", 10))
             response.raise_for_status()
             data = response.json()
 

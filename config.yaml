@@ -3,6 +3,7 @@ api:
   headers:
     User-Agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36"
     Accept: "application/json, text/plain, */*"
+  timeout: 10
 database:
   file: "oanda_rates.db"
 categories:
@@ -99,3 +100,5 @@ categories:
     PLN: PLN
     CZK: CZK
     HUF: HUF
+ui:
+  timer_interval: 16

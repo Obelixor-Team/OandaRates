@@ -7,7 +7,8 @@ from .model import Model
 from .presenter import Presenter
 from .view import View
 
-from typing import Optional  # Add this import
+from typing import Optional
+from .model import config # Import config from model.py
 
 
 def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> View:
@@ -41,7 +42,8 @@ def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> Vi
     # This is the PyQt equivalent of Dear PyGui's render callback
     timer = QTimer()
     timer.timeout.connect(p.process_ui_updates)
-    timer.start(16)  # Check for updates roughly 60 times per second
+    timer_interval = config.get("ui", {}).get("timer_interval", 16)
+    timer.start(timer_interval)
 
     return v
 

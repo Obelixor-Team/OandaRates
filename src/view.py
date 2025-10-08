@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtCore import QSettings, Qt
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Dict
 
 from .theme import THEME
 
@@ -189,19 +189,20 @@ class View(QMainWindow):
 
         self.table = QTableWidget()
         self.table.setColumnCount(9)
-        self.table.setHorizontalHeaderLabels(
-            [
-                "Instrument",
-                "Category",
-                "Currency",
-                "Days",
-                "Long Rate",
-                "Short Rate",
-                "Long Charge",
-                "Short Charge",
-                "Units",
-            ]
-        )
+        headers = [
+            "Instrument",
+            "Category",
+            "Currency",
+            "Days",
+            "Long Rate",
+            "Short Rate",
+            "Long Charge",
+            "Short Charge",
+            "Units",
+        ]
+        self.table.setHorizontalHeaderLabels(headers)
+        for i, label in enumerate(headers):
+            self.table.horizontalHeaderItem(i).setToolTip(f"Column: {label}")
         self.table.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch
         )
@@ -286,8 +287,13 @@ class View(QMainWindow):
         if current_sort_column != -1:
             self.table.sortItems(current_sort_column, current_sort_order)
 
-    def show_history_window(self, instrument_name, history_df, stats):
-        """Display a dialog with historical data and stats for an instrument."""
+    def show_history_window(self, instrument_name: str, history_df: pd.DataFrame, stats: Dict[str, float]) -> None:
+        if not isinstance(history_df, pd.DataFrame) or history_df.empty:
+            self.set_status("Invalid history data", is_error=True)
+            return
+        if not isinstance(stats, dict):
+            self.set_status("Invalid statistics data", is_error=True)
+            return
         dialog = HistoryDialog(instrument_name, history_df, stats, self)
         dialog.exec()
 

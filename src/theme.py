@@ -1,4 +1,11 @@
-THEME = {
+import re
+from typing import Dict
+
+def validate_color(color: str) -> bool:
+    """Validate that a color is a valid hex code."""
+    return bool(re.match(r"^#[0-9a-fA-F]{6}$", color))
+
+THEME: Dict[str, str] = {
     "background": "#0a0a12",
     "text": "#e0e0e0",
     "positive": "#00ff9d",
@@ -17,3 +24,7 @@ THEME = {
     "input_border": "#2a2a3e",
     "status_text": "#a0a0b0",
 }
+
+for key, value in THEME.items():
+    if not validate_color(value):
+        raise ValueError(f"Invalid color format for {key}: {value}")
