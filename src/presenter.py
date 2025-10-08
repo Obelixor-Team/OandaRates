@@ -156,7 +156,7 @@ class Presenter:
             long_rate = float(rate.get("longRate", 0.0)) * 100
             short_rate = float(rate.get("shortRate", 0.0)) * 100
 
-            currency = self._infer_currency(instrument, rate.get("currency", ""))
+            currency = self.model._infer_currency(instrument, rate.get("currency", ""))
 
             row_data = [
                 instrument,
@@ -175,41 +175,6 @@ class Presenter:
         self.view.set_status(
             f"Display updated. Showing {len(filtered_data)} instruments."
         )
-
-    def _infer_currency(self, instrument_name: str, api_currency: str) -> str:
-        """Infers the currency from the instrument name or falls back to API provided currency."""
-        if "/" in instrument_name:
-            return instrument_name.split("/")[1]
-
-        # Mapping of suffixes to currencies
-        suffix_to_currency = {
-            "USD": "USD",
-            "EUR": "EUR",
-            "GBP": "GBP",
-            "JPY": "JPY",
-            "AUD": "AUD",
-            "CAD": "CAD",
-            "CHF": "CHF",
-            "NZD": "NZD",
-            "SGD": "SGD",
-            "HKD": "HKD",
-            "NOK": "NOK",
-            "SEK": "SEK",
-            "DKK": "DKK",
-            "MXN": "MXN",
-            "ZAR": "ZAR",
-            "TRY": "TRY",
-            "CNH": "CNH",
-            "PLN": "PLN",
-            "CZK": "CZK",
-            "HUF": "HUF",
-        }
-
-        for suffix, currency in suffix_to_currency.items():
-            if instrument_name.endswith(suffix):
-                return currency
-
-        return api_currency  # Fallback to API provided currency
 
     # --- Background Jobs (Worker Threads) ---
 

@@ -25,8 +25,8 @@ Based on the provided code review, here's an action plan to address the identifi
 4.  **Unit and Integration Tests (Partially Completed)**:
     *   **Action**: Developed comprehensive unit tests for `Model.categorize_instrument`, `Model.fetch_and_save_rates`, `Model.get_latest_rates`, `Model.get_instrument_history`, and `Presenter._update_display`. Implemented integration test for manual update flow. Further integration tests are pending.
 
-5.  **Consolidate Duplicated Logic**:
-    *   **Action**: Move the `_infer_currency` method from `presenter.py` to the `Model` class to centralize currency-related logic.
+5.  **Consolidate Duplicated Logic (Completed)**:
+    *   **Action**: Moved the `_infer_currency` method from `presenter.py` to the `Model` class to centralize currency-related logic.
 
 6.  **Centralized Theme**:
     *   **Action**: Define a theme dictionary in a separate file (e.g., `theme.py`) for consistent styling across the GUI and plots.
