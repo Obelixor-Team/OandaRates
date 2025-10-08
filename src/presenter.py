@@ -45,6 +45,9 @@ class Presenter:
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
+        if not isinstance(filter_text, str):
+            # Optionally log an error or handle invalid input gracefully
+            return
         self.filter_text = filter_text.lower()
         self._update_display()
 
@@ -62,6 +65,9 @@ class Presenter:
 
     def on_instrument_double_clicked(self, instrument_name: str):
         """Handle a double-click event on the table to show history."""
+        if not isinstance(instrument_name, str):
+            # Optionally log an error or handle invalid input gracefully
+            return
         if not instrument_name:
             return
 
