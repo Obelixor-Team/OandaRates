@@ -1,9 +1,11 @@
 import re
 from typing import Dict
 
+
 def validate_color(color: str) -> bool:
     """Validate that a color is a valid hex code."""
     return bool(re.match(r"^#[0-9a-fA-F]{6}$", color))
+
 
 THEME: Dict[str, str] = {
     "background": "#0a0a12",

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .model import Model
     from .view import View
 
+
 class UIUpdate(TypedDict):
     type: str
     payload: Dict[str, Any]
@@ -234,7 +235,7 @@ class Presenter:
                     {
                         "type": "status",
                         "payload": {
-                            "text": "Manual update failed.",
+                            "text": "Manual update failed. Please try again or check API connectivity.",
                             "is_error": True,
                         },
                     }
@@ -246,7 +247,7 @@ class Presenter:
                     {
                         "type": "status",
                         "payload": {
-                            "text": "API fetch successful and saved to DB.",
+                            "text": "API fetch successful and saved to database.",
                             "is_error": False,
                         },
                     }
@@ -256,7 +257,7 @@ class Presenter:
                     {
                         "type": "status",
                         "payload": {
-                            "text": "API fetch failed.",
+                            "text": "API fetch failed. Please check API connectivity.",
                             "is_error": True,
                         },
                     }
@@ -276,7 +277,10 @@ class Presenter:
             self.ui_update_queue.put(
                 {
                     "type": "status",
-                    "payload": {"text": f"Scheduler failed to start: {str(e)}", "is_error": True},
+                    "payload": {
+                        "text": f"Scheduler failed to start: {str(e)}",
+                        "is_error": True,
+                    },
                 }
             )
 

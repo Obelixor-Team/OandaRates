@@ -287,7 +287,9 @@ class View(QMainWindow):
         if current_sort_column != -1:
             self.table.sortItems(current_sort_column, current_sort_order)
 
-    def show_history_window(self, instrument_name: str, history_df: pd.DataFrame, stats: Dict[str, float]) -> None:
+    def show_history_window(
+        self, instrument_name: str, history_df: pd.DataFrame, stats: Dict[str, float]
+    ) -> None:
         if not isinstance(history_df, pd.DataFrame) or history_df.empty:
             self.set_status("Invalid history data", is_error=True)
             return

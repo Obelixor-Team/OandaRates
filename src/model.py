@@ -105,7 +105,11 @@ class Model:
             sqlalchemy.exc.SQLAlchemyError: If database operations fail.
         """
         try:
-            response = requests.get(API_URL, headers=HEADERS, timeout=config.get("api", {}).get("timeout", 10))
+            response = requests.get(  # nosec B113
+                API_URL,
+                headers=HEADERS,
+                timeout=config.get("api", {}).get("timeout", 10),
+            )
             response.raise_for_status()
             data = response.json()
 

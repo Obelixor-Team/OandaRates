@@ -1,6 +1,7 @@
 import yaml
 from typing import Dict
 
+
 def validate_config(config: Dict) -> None:
     """Validate the configuration file for required keys.
 
@@ -39,5 +40,6 @@ def load_config() -> Dict:
         raise FileNotFoundError("config.yaml not found. Please ensure the file exists.")
     except yaml.YAMLError as e:
         raise ValueError(f"Error parsing config.yaml: {str(e)}")
+
 
 config = load_config()
