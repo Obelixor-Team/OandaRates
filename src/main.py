@@ -21,7 +21,7 @@ def run_app(app: QApplication, mock_presenter: Optional[Presenter] = None) -> Vi
         p = Presenter(m, v)  # Instantiate Presenter with Model and View
     v.set_presenter(p)  # Set the presenter in the View
     p.on_app_start()  # Call on_app_start after everything is set up
-    p.process_ui_updates() # Process initial UI updates immediately
+    p.process_ui_updates()  # Process initial UI updates immediately
 
     # Show the main window
     v.show()
