@@ -29,11 +29,8 @@ class Presenter:
     # --- Event Handlers (called by View) ---
 
     def on_app_start(self):
-        """Start initial data load and scheduler threads.
-
-        Called when the application starts.
-        """
-        threading.Thread(target=self._initial_load_job, daemon=True).start()
+        """Start initial data load and scheduler threads."""
+        threading.Thread(target=self._initial_load_job).start()
         self._start_scheduler()
 
     def on_manual_update(self):
@@ -126,6 +123,8 @@ class Presenter:
                 message = self.ui_update_queue.get_nowait()
                 msg_type = message.get("type")
                 payload = message.get("payload")
+                print(f"[process_ui_updates] Processing message: type={msg_type}, payload_keys={payload.keys() if isinstance(payload, dict) else 'N/A'}")
+                sys.stdout.flush() # Flush output
 
                 if msg_type == "status":
                     self.view.set_status(
@@ -147,8 +146,12 @@ class Presenter:
 
     def _update_display(self):
         """Filter the current data and update the view's table."""
+        print(f"[_update_display] raw_data present: {bool(self.raw_data)}, financingRates in raw_data: {'financingRates' in self.raw_data if self.raw_data else 'N/A'}")
+        sys.stdout.flush() # Flush output
         if not self.raw_data or "financingRates" not in self.raw_data:
             self.view.update_table([])
+            print("[_update_display] No raw data or financingRates, updating with empty table.")
+            sys.stdout.flush() # Flush output
             return
 
         filtered_data = []
@@ -177,6 +180,8 @@ class Presenter:
             ]
             filtered_data.append(row_data)
 
+        print(f"[_update_display] filtered_data: {filtered_data}")
+        sys.stdout.flush() # Flush output
         self.view.update_table(filtered_data)
         self.view.set_status(
             f"Display updated. Showing {len(filtered_data)} instruments."
@@ -194,6 +199,8 @@ class Presenter:
         )
         date, data = self.model.get_latest_rates()
         if data:
+            print(f"[_initial_load_job] Data loaded from DB for date: {date}. Data keys: {data.keys() if isinstance(data, dict) else 'N/A'}")
+            sys.stdout.flush() # Flush output
             self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
             self.ui_update_queue.put(
                 {
