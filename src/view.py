@@ -51,15 +51,29 @@ class HistoryDialog(QDialog):
 
         layout = QVBoxLayout()
 
-        # Stats
-        stats_text = ""
+        # Stats Layout
+        stats_layout = QHBoxLayout()
+
+        long_stats_text = "Long Rates:\n"
+        short_stats_text = "Short Rates:\n"
+
         for key, value in stats.items():
-            if "Rate" in key or "Change" in key:
-                stats_text += f"{key}: {value * 100:.2f}%\n"
-            else:
-                stats_text += f"{key}: {value:.2f}\n"
-        stats_label = QLabel(stats_text)
-        layout.addWidget(stats_label)
+            if "Long Rate" in key:
+                long_stats_text += f"{key}: {value * 100:.2f}%\n"
+            elif "Short Rate" in key:
+                short_stats_text += f"{key}: {value * 100:.2f}%\n"
+            elif "Long Change" in key:
+                long_stats_text += f"{key}: {value * 100:.2f}%\n"
+            elif "Short Change" in key:
+                short_stats_text += f"{key}: {value * 100:.2f}%\n"
+
+        long_stats_label = QLabel(long_stats_text)
+        short_stats_label = QLabel(short_stats_text)
+
+        stats_layout.addWidget(long_stats_label)
+        stats_layout.addWidget(short_stats_label)
+
+        layout.addLayout(stats_layout)
 
         # Plot
         if not history_df.empty:
