@@ -35,3 +35,13 @@ GEMINI.md
 # Build artifacts
 build/
 src/oanda_rates.egg-info/
+
+# Coverage files
+.coverage
+htmlcov/
+
+# Documentation output
+docs/html/
+
+# Temporary test files
+test.txt
