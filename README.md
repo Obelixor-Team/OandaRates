@@ -76,6 +76,31 @@ make run
 
 The application window will appear, displaying the OANDA financing rates. Data will automatically update daily at 10:30 PM GMT.
 
+## Configuration
+
+The application's behavior can be customized through the `config.yaml` file.
+
+*   **`api`**: Configuration for the OANDA API.
+    *   `url`: The API endpoint for fetching financing rates.
+    *   `headers`: HTTP headers to be sent with the API request. The default `User-Agent` mimics a browser.
+    *   `timeout`: The timeout in seconds for the API request.
+*   **`database`**: Configuration for the local database.
+    *   `file`: The name of the SQLite database file.
+*   **`categories`**: Lists of keywords used to categorize instruments.
+    *   `currencies`, `metals`, `commodities`, `indices`, `bonds`: These lists contain keywords that are used to identify the category of an instrument based on its name.
+    *   `currency_suffixes`: A mapping of instrument name suffixes to their corresponding currency.
+*   **`ui`**: Configuration for the user interface.
+    *   `timer_interval`: The interval in milliseconds for the UI update timer.
+
+## Usage
+
+*   **Filtering:**
+    *   **By Text:** Type in the "Filter instruments..." input box to filter the table by instrument name.
+    *   **By Category:** Select a category from the dropdown menu to show only instruments from that category.
+*   **Clear Filter:** Click the "Clear Filter" button to reset both the text and category filters.
+*   **Manual Update:** Click the "Manual Update" button to fetch the latest rates from the API. Note that this will not save the data to the database.
+*   **View History:** Double-click on any instrument in the table to open a new window showing a plot of its historical rates and related statistics.
+
 ## Code Quality
 
 This project uses several tools to maintain code quality. A `Makefile` is provided to automate running these checks.
@@ -93,7 +118,3 @@ This project uses several tools to maintain code quality. A `Makefile` is provid
 *   **`make clean`**: Cleans up generated files (e.g., `__pycache__`, `.mypy_cache`, build artifacts).
 *   **`make run`**: Runs the application.
 *   **`make help`**: Displays this help message.
-
-## Screenshot
-
-*(Placeholder for a screenshot of the application in action)*

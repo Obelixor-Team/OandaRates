@@ -142,7 +142,6 @@ class View(QMainWindow):
         self._presenter: Optional["Presenter"] = presenter
         self._timer: Optional[QTimer] = None
         self.setWindowTitle("OANDA FINANCING TERMINAL v4.0")
-        # self.setGeometry(100, 100, 1400, 900) # Removed to use saved geometry
         self._apply_stylesheet()
         self._setup_ui()
         # self.presenter.on_app_start() # This will be called from main.py after presenter is set
@@ -152,7 +151,7 @@ class View(QMainWindow):
         if self.settings.contains("geometry"):
             self.restoreGeometry(self.settings.value("geometry"))
         else:
-            self.setGeometry(100, 100, 1400, 900)  # Default size if no settings saved
+            self.resize(self.sizeHint())  # Use sizeHint for default size
 
     def set_timer(self, timer: QTimer) -> None:
         self._timer = timer
@@ -178,6 +177,10 @@ class View(QMainWindow):
         # --- Widgets ---
         self.filter_input = QLineEdit()
         self.filter_input.setPlaceholderText("Filter instruments...")
+        self.filter_input.setAccessibleName("Instrument Filter")
+        self.filter_input.setAccessibleDescription(
+            "Enter text to filter the list of instruments."
+        )
 
         self.category_combo = QComboBox()
         self.category_combo.addItems(
@@ -192,9 +195,22 @@ class View(QMainWindow):
                 "Other",
             ]
         )
+        self.category_combo.setAccessibleName("Category Filter")
+        self.category_combo.setAccessibleDescription(
+            "Select a category to filter the list of instruments."
+        )
 
         self.clear_btn = QPushButton("Clear Filter")
+        self.clear_btn.setAccessibleName("Clear Filter Button")
+        self.clear_btn.setAccessibleDescription(
+            "Clears the instrument and category filters."
+        )
+
         self.update_btn = QPushButton("Manual Update")
+        self.update_btn.setAccessibleName("Manual Update Button")
+        self.update_btn.setAccessibleDescription(
+            "Manually fetches the latest financing rates from the OANDA API."
+        )
 
         self.table = QTableWidget()
         self.table.setColumnCount(9)
@@ -219,6 +235,10 @@ class View(QMainWindow):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setSortingEnabled(True)  # Enable sorting
+        self.table.setAccessibleName("Financing Rates Table")
+        self.table.setAccessibleDescription(
+            "Displays the OANDA financing rates. Double-click on an instrument to view its history."
+        )
 
         # --- Status Bar ---
         self.status_label = QLabel("TERMINAL READY")

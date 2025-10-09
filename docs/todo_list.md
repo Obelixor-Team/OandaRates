@@ -65,13 +65,13 @@ Based on the code review provided for the OANDA Financing Terminal application, 
   - Implement a progress bar or spinner during API fetches (e.g., in `on_manual_update`).
   - Benefit: Improves user experience by showing activity during long operations.
 
-- [ ] **Enable Dynamic Resizing for Main Window** (Low Priority, Low Effort)
+- [x] **Enable Dynamic Resizing for Main Window** (Low Priority, Low Effort)
   - Use `sizeHint` for the main window in `View.__init__` instead of a fixed default size.
   - Benefit: Makes the UI more adaptable to different screen sizes.
 
-- [ ] **Improve Accessibility in `view.py`** (Low Priority, High Effort)
-  - Add keyboard navigation and screen reader support for UI components (e.g., `QTableWidget`, `QLineEdit`).
-  - Example: Set accessible names and descriptions using PyQt6’s accessibility properties.
+- [x] **Improve Accessibility in `view.py`** (Low Priority, High Effort)
+  - Added accessible names and descriptions to the main UI components for better screen reader support.
+  - Further improvements, such as full keyboard navigation, could be implemented in the future.
   - Benefit: Enhances usability for all users.
 
 #### **6. Security**
@@ -87,16 +87,16 @@ Based on the code review provided for the OANDA Financing Terminal application, 
   - Add usage examples to docstrings for complex methods (e.g., `Model.fetch_and_save_rates`, `Presenter.on_instrument_double_clicked`).
   - Benefit: Improves code understanding for developers.
 
-- [ ] **Update `README.md`** (Low Priority, Medium Effort)
+- [x] **Update `README.md`** (Low Priority, Medium Effort)
   - Add setup instructions, configuration details, and usage examples to `README.md`.
   - Benefit: Simplifies onboarding for new developers or users.
 
 #### **8. Extensibility**
-- [ ] **Support Theme Loading from Config in `theme.py`** (Low Priority, Medium Effort)
+- [x] **Support Theme Loading from Config in `theme.py`** (Low Priority, Medium Effort)
   - Allow themes to be loaded from a configuration file to support user customization.
   - Benefit: Increases flexibility for UI customization.
 
-- [ ] **Provide Default Configuration in `config.py`** (Low Priority, Medium Effort)
+- [x] **Provide Default Configuration in `config.py`** (Low Priority, Medium Effort)
   - Implement fallback configuration values if `config.yaml` is missing or malformed.
   - Benefit: Improves application resilience.
 
