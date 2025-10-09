@@ -24,6 +24,57 @@ def setup_logging():
     )
 
 
+# Default configuration settings for the OANDA Financing Terminal application.
+#
+# This dictionary defines the default values for various application
+# parameters, including API settings, database configuration, instrument
+# categorization, UI behavior, theme colors, and logging preferences.
+# These defaults can be overridden by a `config.yaml` file.
+#
+# Structure:
+# - api (dict): API connection settings.
+#     - url (str): The OANDA API endpoint for financing rates.
+#     - headers (dict): HTTP headers for API requests.
+#         - User-Agent (str): User-Agent string for requests.
+#         - Accept (str): Accept header for requests.
+#         - Authorization (str): OANDA API key (loaded from OANDA_API_KEY env var).
+#     - timeout (int/float): Request timeout in seconds.
+#     - max_retries (int): Maximum number of retry attempts for failed API calls.
+#     - retry_delay (float): Initial delay for exponential backoff in retries.
+# - database (dict): Database settings.
+#     - file (str): Path to the SQLite database file.
+# - categories (dict): Rules for categorizing financial instruments.
+#     - currencies (list): List of currency codes.
+#     - metals (list): List of metal codes.
+#     - commodities (list): List of commodity codes.
+#     - indices (list): List of index codes.
+#     - bonds (list): List of bond codes.
+#     - currency_suffixes (dict): Mapping of suffixes to currency codes for inference.
+# - ui (dict): User interface settings.
+#     - timer_interval (int): Interval (in milliseconds) for UI update timer.
+# - theme (dict): UI theme color palette.
+#     - background (str): Main background color.
+#     - text (str): General text color.
+#     - positive (str): Color for positive values/indicators.
+#     - negative (str): Color for negative values/indicators.
+#     - plot_background (str): Background color for plots.
+#     - table_background (str): Background color for tables.
+#     - table_gridline (str): Color for table gridlines.
+#     - header_background (str): Background color for table headers.
+#     - header_text (str): Text color for table headers.
+#     - selected_background (str): Background color for selected items.
+#     - selected_text (str): Text color for selected items.
+#     - button_background (str): Background color for buttons.
+#     - button_hover (str): Background color for buttons on hover.
+#     - button_text (str): Text color for buttons.
+#     - input_background (str): Background color for input fields.
+#     - input_border (str): Border color for input fields.
+#     - status_text (str): Text color for status messages.
+#     - plot_long_rate_color (str): Color for long rate plots.
+#     - plot_short_rate_color (str): Color for short rate plots.
+# - logging (dict): Logging settings.
+#     - level (str): Logging level (e.g., "INFO", "DEBUG").
+#     - file_path (str): Path to the log file.
 DEFAULT_CONFIG = {
     "api": {
         "url": "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1",

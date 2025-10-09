@@ -42,6 +42,13 @@ class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
     def __init__(self):
+        """Initializes the Model, setting up the database engine and sessionmaker.
+
+        This constructor creates a SQLAlchemy engine for an SQLite database,
+        ensuring connection pooling and optional SQL echoing for debugging.
+        It also creates all necessary database tables if they don't already exist
+        and initializes a sessionmaker for managing database sessions.
+        """
         # Create engine instance specifically for this Model
         self.engine = create_engine(
             f"sqlite:///{DB_FILE}",
@@ -124,13 +131,21 @@ class Model:
         return None
 
     def _query_all_rates_ordered(self, ascending: bool = True) -> list[Dict[str, Any]]:
-        """Query all rates ordered by date, returning their date and raw data.
+        """Queries all stored financing rates from the database, ordered by date.
+
+        This method retrieves all entries from the 'rates' table, ordering them
+        either in ascending or descending order based on the 'date' column.
+        It extracts the date and the raw JSON data for each rate.
 
         Args:
-            ascending: If True, order ascending; else descending
+            ascending (bool): If True, the rates are ordered by date in ascending
+                              order. If False, they are ordered in descending order.
+                              Defaults to True.
 
         Returns:
-            List of dictionaries, each with 'date' and 'raw_data'
+            list[Dict[str, Any]]: A list of dictionaries, where each dictionary
+                                  contains 'date' (str) and 'raw_data' (str)
+                                  for a financing rate entry.
         """
         with self.get_session() as session:
             order = Rate.date.asc() if ascending else Rate.date.desc()
@@ -308,7 +323,19 @@ class Model:
             return None
 
     def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-        """Load the most recent financing rates from the database."""
+        """Loads the most recent financing rates from the database.
+
+        This method queries the database for the latest stored financing rates.
+        If data is found, it parses the raw JSON data and returns the date
+        and the parsed dictionary of rates.
+
+        Returns:
+            A tuple containing:
+            - str: The date of the latest rates (e.g., "YYYY-MM-DD").
+            - Dict[str, Any]: A dictionary containing the latest financing rates.
+            Returns (None, None) if no data is found in the database or if
+            parsing fails.
+        """
         rate_data = self._query_latest_rate()  # This now returns a dict or None
 
         if rate_data:
