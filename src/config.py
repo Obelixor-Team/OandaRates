@@ -1,6 +1,7 @@
 import yaml
 from typing import Dict
 import logging
+import os
 import logging.config
 
 
@@ -15,9 +16,7 @@ def setup_logging():
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
-            logging.FileHandler(
-                "/home/skum/Dev/PycharmProjects/OandaRates/oanda_terminal.log"
-            ),
+            logging.FileHandler(config["logging"]["file_path"]),
             logging.StreamHandler(),
         ],
     )
@@ -29,6 +28,7 @@ DEFAULT_CONFIG = {
         "headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
+            "Authorization": os.getenv("OANDA_API_KEY", ""),
         },
         "timeout": 10,
     },
@@ -153,7 +153,7 @@ DEFAULT_CONFIG = {
         "input_border": "#2a2a3e",
         "status_text": "#a0a0b0",
     },
-    "logging": {"level": "INFO"},
+    "logging": {"level": "INFO", "file_path": "oanda_terminal.log"},
 }
 
 
@@ -176,6 +176,9 @@ def _validate_config_types(config: Dict) -> None:
         raise ValueError(
             f"Config error: logging.level must be one of {valid_log_levels}."
         )
+
+    if not isinstance(config["logging"]["file_path"], str):
+        raise TypeError("Config error: logging.file_path must be a string.")
 
     # Validate ui.timer_interval
     if not isinstance(config["ui"]["timer_interval"], int):
@@ -229,6 +232,7 @@ def validate_config(config: Dict) -> None:
         "theme.plot_long_rate_color",
         "theme.plot_short_rate_color",
         "logging.level",
+        "logging.file_path",
     ]
     for key in required_keys:
         parent, child = key.split(".")

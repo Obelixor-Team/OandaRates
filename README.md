@@ -82,15 +82,34 @@ The application's behavior can be customized through the `config.yaml` file.
 
 *   **`api`**: Configuration for the OANDA API.
     *   `url`: The API endpoint for fetching financing rates.
-    *   `headers`: HTTP headers to be sent with the API request. The default `User-Agent` mimics a browser.
+    *   `headers`: HTTP headers to be sent with the API request. The `Authorization` header is read from the `OANDA_API_KEY` environment variable for security. The default `User-Agent` mimics a browser.
     *   `timeout`: The timeout in seconds for the API request.
 *   **`database`**: Configuration for the local database.
     *   `file`: The name of the SQLite database file.
 *   **`categories`**: Lists of keywords used to categorize instruments.
     *   `currencies`, `metals`, `commodities`, `indices`, `bonds`: These lists contain keywords that are used to identify the category of an instrument based on its name.
     *   `currency_suffixes`: A mapping of instrument name suffixes to their corresponding currency.
-*   **`ui`**: Configuration for the user interface.
+*   `ui`: Configuration for the user interface.
     *   `timer_interval`: The interval in milliseconds for the UI update timer.
+
+*   **`logging`**: Configuration for application logging.
+    *   `level`: The minimum logging level (e.g., `INFO`, `DEBUG`, `WARNING`, `ERROR`).
+    *   `file_path`: The path to the log file. Defaults to `oanda_terminal.log` in the project root.
+
+*   **`theme`**: Customization options for the application\'s visual theme.
+    *   Various keys like `background`, `text`, `positive`, `negative`, `etc.`: These define the colors for different UI elements. You can adjust these hexadecimal color codes to match your preferences.
+
+    Example `config.yaml` snippet for theme and logging:
+    ```yaml
+    logging:
+      level: DEBUG
+      file_path: /var/log/oanda_app.log
+    theme:
+      background: "#1e1e1e"
+      text: "#d4d4d4"
+      positive: "#60a060"
+      negative: "#e06060"
+    ```
 
 ## Usage
 

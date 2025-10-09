@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from unittest.mock import MagicMock, patch
 
@@ -130,3 +131,47 @@ def test_get_instrument_history(model, db_session):
     assert history_df["date"].tolist() == [day1, day2]
     assert history_df["long_rate"].tolist() == ["0.01", "0.02"]
     assert history_df["short_rate"].tolist() == ["-0.01", "-0.02"]
+
+
+def test_get_instrument_history_caching(model, db_session):
+    # Add some dummy data to the database
+    day1 = "2025-10-06"
+    mock_data_day1 = {
+        "financingRates": [
+            {"instrument": "EUR/USD", "longRate": "0.01", "shortRate": "-0.01"}
+        ]
+    }
+    db_session.add(Rate(date=day1, raw_data=json.dumps(mock_data_day1)))
+    db_session.commit()
+
+    with patch("src.model.json.loads") as mock_json_loads:
+        mock_json_loads.return_value = mock_data_day1
+        # First call - should hit the underlying json.loads
+        model.get_instrument_history("EUR/USD")
+        mock_json_loads.assert_called_once()
+
+        # Second call with same instrument - should use cache, json.loads should not be called again
+        model.get_instrument_history("EUR/USD")
+        mock_json_loads.assert_called_once()  # Still called only once
+
+
+def test_get_instrument_history_json_decode_error(model, db_session, caplog):
+    # Add a malformed entry to the database
+    day1 = "2025-10-06"
+    day2 = "2025-10-07"
+    mock_data_day2 = {
+        "financingRates": [
+            {"instrument": "EUR/USD", "longRate": "0.02", "shortRate": "-0.02"}
+        ]
+    }
+
+    db_session.add(Rate(date=day1, raw_data="invalid json"))
+    db_session.add(Rate(date=day2, raw_data=json.dumps(mock_data_day2)))
+    db_session.commit()
+
+    with caplog.at_level(logging.ERROR):
+        history_df = model.get_instrument_history("EUR/USD")
+        assert "Failed to parse JSON for rate on 2025-10-06" in caplog.text
+        assert not history_df.empty
+        assert len(history_df) == 1
+        assert history_df["date"].tolist() == [day2]

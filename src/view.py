@@ -258,6 +258,7 @@ class View(QMainWindow):
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setSortingEnabled(True)  # Enable sorting
+        self.table.setFocusPolicy(Qt.FocusPolicy.StrongFocus)  # Make table focusable
         self.table.setAccessibleName("Financing Rates Table")
         self.table.setAccessibleDescription(
             "Displays the OANDA financing rates. Double-click on an instrument to view its history."
@@ -285,6 +286,13 @@ class View(QMainWindow):
 
         main_layout.addLayout(control_layout)
         main_layout.addWidget(self.table)
+
+        # Set tab order
+        self.setTabOrder(self.filter_input, self.category_combo)
+        self.setTabOrder(self.category_combo, self.clear_btn)
+        self.setTabOrder(self.clear_btn, self.update_btn)
+        self.setTabOrder(self.update_btn, self.cancel_btn)
+        self.setTabOrder(self.cancel_btn, self.table)
 
     def _on_table_double_click(self, item):
         instrument_name = self.table.item(item.row(), 0).text()
@@ -372,6 +380,33 @@ class View(QMainWindow):
     def show_history_window(
         self, instrument_name: str, history_df: pd.DataFrame, stats: Dict[str, float]
     ) -> None:
+        """Displays a dialog with historical data and statistics for a given instrument.
+
+        Args:
+            instrument_name: The name of the instrument (e.g., "EUR_USD").
+            history_df: A pandas DataFrame containing the historical long and short rates.
+                        Expected columns: "date", "long_rate", "short_rate".
+            stats: A dictionary of statistical summaries for the rates.
+
+        Example:
+            >>> import pandas as pd
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> history_data = {
+            ...     "date": ["2023-01-01", "2023-01-02"],
+            ...     "long_rate": [0.01, 0.015],
+            ...     "short_rate": [-0.02, -0.025]
+            ... }
+            >>> history_df = pd.DataFrame(history_data)
+            >>> stats_data = {
+            ...     "Mean Long Rate": 0.0125,
+            ...     "Mean Short Rate": -0.0225
+            ... }
+            >>> # To test, you would typically mock the QDialog.exec() method
+            >>> # with unittest.mock.patch('src.view.HistoryDialog.exec', return_value=0):
+            >>> view.show_history_window("EUR_USD", history_df, stats_data)
+            # This would open the HistoryDialog for EUR_USD.
+        """
         if not isinstance(history_df, pd.DataFrame) or history_df.empty:
             logger.error(f"Invalid history_df provided for {instrument_name}")
             self.set_status("Invalid history data", is_error=True)

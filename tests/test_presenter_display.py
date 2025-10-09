@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from src.presenter import Presenter
 
 
@@ -258,3 +258,88 @@ def test_update_display_currency_inference(presenter_instance, mock_view):
     mock_view.set_status.assert_called_once_with(
         "Display updated. Showing 3 instruments."
     )
+
+
+def test_on_manual_update_success(presenter_instance, mock_model, mock_view):
+    # Mock the model's fetch_and_save_rates to return sample data
+    mock_model.fetch_and_save_rates.return_value = SAMPLE_RAW_DATA
+
+    # Call the method under test
+    presenter_instance.on_manual_update()
+
+    # Assert that view methods are called correctly
+    mock_view.set_update_buttons_enabled.assert_any_call(False)
+    # After the job completes, it should be re-enabled
+    mock_view.set_update_buttons_enabled.assert_any_call(True)
+    assert presenter_instance.ui_update_queue.get_nowait() == {
+        "type": "status",
+        "payload": {"text": "Fetching new data from API..."},
+    }
+    assert presenter_instance.ui_update_queue.get_nowait() == {
+        "type": "show_progress",
+        "payload": {},
+    }
+
+    # Wait for the executor to complete the _fetch_job
+    presenter_instance.executor.shutdown(wait=True)
+
+    # Assert that fetch_and_save_rates was called
+    mock_model.fetch_and_save_rates.assert_called_once_with(save_to_db=False)
+
+    # Assert that the status and progress are updated after fetch
+    assert presenter_instance.ui_update_queue.get_nowait() == {
+        "type": "status",
+        "payload": {
+            "text": "Manual update successful (not saved to DB).",
+            "is_error": False,
+        },
+    }
+    assert presenter_instance.ui_update_queue.get_nowait() == {
+        "type": "hide_progress",
+        "payload": {},
+    }
+    mock_view.set_update_buttons_enabled.assert_called_with(True)
+    assert presenter_instance.ui_update_queue.get_nowait() == {
+        "type": "data",
+        "payload": SAMPLE_RAW_DATA,
+    }
+
+
+def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view):
+    # Mock the model's fetch_and_save_rates to simulate a long-running operation
+    # that checks for cancellation
+    with patch.object(presenter_instance.executor, "submit"):
+        # Start the manual update
+        presenter_instance.on_manual_update()
+
+        # Request cancellation
+        presenter_instance.on_cancel_update()
+
+        # Manually call the _fetch_job, which will now see _is_cancellation_requested as True
+        presenter_instance._fetch_job("manual")
+
+        # Assert that cancellation was handled
+        assert presenter_instance._is_cancellation_requested is True
+        mock_view.set_status.assert_any_call(
+            "Cancellation requested. Waiting for current operation to finish..."
+        )
+        mock_view.set_update_buttons_enabled.assert_any_call(True)
+
+        # Check the queue for cancellation messages
+        assert presenter_instance.ui_update_queue.get_nowait() == {
+            "type": "status",
+            "payload": {"text": "Fetching new data from API..."},
+        }
+        assert presenter_instance.ui_update_queue.get_nowait() == {
+            "type": "show_progress",
+            "payload": {},
+        }
+        assert presenter_instance.ui_update_queue.get_nowait() == {
+            "type": "status",
+            "payload": {"text": "Update cancelled.", "is_error": True},
+        }
+        assert presenter_instance.ui_update_queue.get_nowait() == {
+            "type": "hide_progress",
+            "payload": {},
+        }
+        mock_view.set_update_buttons_enabled.assert_called_with(True)

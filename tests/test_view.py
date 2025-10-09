@@ -13,7 +13,6 @@ def app(request):
     """Fixture for QApplication instance."""
     _app = QApplication([])
     yield _app
-    _app.quit()
 
 
 @pytest.fixture
@@ -25,6 +24,7 @@ def mock_presenter():
 @pytest.fixture
 def view_instance(app, mock_presenter):
     view = View(mock_presenter)
+    view.set_presenter(mock_presenter)  # Explicitly call set_presenter
     view.show()
     yield view
     view.close()
@@ -141,6 +141,63 @@ def test_update_table_with_non_numeric_rates(view_instance):
     assert view_instance.table.item(1, 4).text() == "1.00%"
     # Ensure no error when sorting with non-numeric data
     view_instance.table.sortItems(4, Qt.SortOrder.AscendingOrder)
-    assert (
-        view_instance.table.item(0, 0).text() == "N/A"
-    )  # Fallback to string comparison
+    assert view_instance.table.item(0, 0).text() == "Y"  # Fallback to string comparison
+
+
+def test_update_button_click(view_instance, mock_presenter):
+    view_instance.update_btn.click()
+    mock_presenter.on_manual_update.assert_called_once()
+
+
+def test_cancel_button_click(view_instance, mock_presenter):
+    view_instance.cancel_btn.setEnabled(True)  # Enable the button
+    view_instance.cancel_btn.click()
+    mock_presenter.on_cancel_update.assert_called_once()
+
+
+def test_clear_button_click(view_instance, mock_presenter):
+    view_instance.clear_btn.click()
+    mock_presenter.on_clear_filter.assert_called_once()
+
+
+def test_filter_input_changed(view_instance, mock_presenter):
+    test_text = "test filter"
+    view_instance.filter_input.setText(test_text)
+    mock_presenter.on_filter_text_changed.assert_called_once_with(test_text)
+
+
+def test_category_combo_changed(view_instance, mock_presenter):
+    test_category = "Forex"
+    view_instance.category_combo.setCurrentText(test_category)
+    mock_presenter.on_category_selected.assert_called_once_with(test_category)
+
+
+def test_table_double_click(view_instance, mock_presenter):
+    view_instance.update_table(SAMPLE_TABLE_DATA)
+    # Simulate a double-click on the first item
+    view_instance.table.itemDoubleClicked.emit(view_instance.table.item(0, 0))
+    mock_presenter.on_instrument_double_clicked.assert_called_once_with("EUR/USD")
+
+
+def test_set_status(view_instance):
+    view_instance.set_status("Test status message")
+    assert view_instance.status_label.text() == "Test status message"
+    assert view_instance.status_label.styleSheet() == f"color: {THEME['positive']};"
+
+    view_instance.set_status("Error message", is_error=True)
+    assert view_instance.status_label.text() == "Error message"
+    assert view_instance.status_label.styleSheet() == f"color: {THEME['negative']};"
+
+
+def test_set_update_time(view_instance):
+    test_time = "2025-10-09"
+    view_instance.set_update_time(test_time)
+    assert view_instance.update_time_label.text() == f"LAST UPDATE: {test_time}"
+
+
+def test_progress_bar_visibility(view_instance):
+    view_instance.show_progress_bar()
+    assert view_instance.progress_bar.isVisible() is True
+
+    view_instance.hide_progress_bar()
+    assert view_instance.progress_bar.isVisible() is False

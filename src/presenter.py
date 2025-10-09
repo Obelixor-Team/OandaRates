@@ -184,7 +184,30 @@ class Presenter:
         return data
 
     def process_ui_updates(self):
-        """Check the queue for UI updates and apply them. Runs on the main thread."""
+        """Check the queue for UI updates and apply them. Runs on the main thread.
+
+        This method is typically called periodically by a QTimer in the View.
+        It dequeues UIUpdate messages and dispatches them to the appropriate
+        View methods or updates internal state.
+
+        Example:
+            >>> # Assuming a Presenter instance 'p' and a View instance 'v'
+            >>> # A message is put into the queue (e.g., from a background thread)
+            >>> p.ui_update_queue.put({
+            ...     "type": "status",
+            ...     "payload": {"text": "Loading data...", "is_error": False}
+            ... })
+            >>> p.process_ui_updates()
+            >>> v.set_status.assert_called_once_with("Loading data...", is_error=False)
+
+            >>> p.ui_update_queue.put({
+            ...     "type": "data",
+            ...     "payload": {"financingRates": []}
+            ... })
+            >>> p.process_ui_updates()
+            >>> v.hide_progress_bar.assert_called_once()
+            >>> v.set_update_time.assert_called_once()
+        """
         try:
             while not self.ui_update_queue.empty():
                 message = self.ui_update_queue.get_nowait()
