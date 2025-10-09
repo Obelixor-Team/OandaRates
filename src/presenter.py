@@ -1,5 +1,6 @@
 import queue
 import logging
+import threading
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -37,7 +38,7 @@ class Presenter:
         self.ui_update_queue: queue.Queue[UIUpdate] = queue.Queue()
         self.scheduler: Optional[BackgroundScheduler] = None
         self.executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent tasks
-        self._is_cancellation_requested: bool = False
+        self._cancellation_event = threading.Event()
 
     def shutdown(self) -> None:
         """Shuts down the scheduler and thread pool executor gracefully.
@@ -51,13 +52,23 @@ class Presenter:
             # Expected: Scheduler and ThreadPoolExecutor are shut down,
             # and corresponding log messages are generated.
         """
-        if self.scheduler:
-            self.scheduler.shutdown(wait=False)
+        if self.scheduler and self.scheduler.running:
+            self.scheduler.shutdown(wait=True)
             logger.info("Scheduler shut down.")
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
         self.model.close()
         logger.info("Model database session closed.")
+
+    def _queue_error(self, message: str) -> None:
+        self.ui_update_queue.put(
+            {"type": "status", "payload": {"text": message, "is_error": True}}
+        )
+
+    def _queue_status(self, message: str) -> None:
+        self.ui_update_queue.put(
+            {"type": "status", "payload": {"text": message, "is_error": False}}
+        )
 
     # --- Event Handlers (called by View) ---
 
@@ -68,25 +79,16 @@ class Presenter:
 
     def on_manual_update(self):
         """Handle the 'Manual Update' button click."""
-        self._is_cancellation_requested = False
+        self._cancellation_event.clear()
         self.view.set_update_buttons_enabled(False)
-        self.ui_update_queue.put(
-            {"type": "status", "payload": {"text": "Fetching new data from API..."}}
-        )
+        self._queue_status("Fetching new data from API...")
         self.ui_update_queue.put({"type": "show_progress", "payload": {}})
         self.executor.submit(self._fetch_job, "manual")
 
     def on_cancel_update(self):
         """Handle the 'Cancel Update' button click."""
-        self._is_cancellation_requested = True
-        self.ui_update_queue.put(
-            {
-                "type": "status",
-                "payload": {
-                    "text": "Cancellation requested. Waiting for current operation to finish..."
-                },
-            }
-        )
+        self._cancellation_event.set()
+        self._queue_status("Cancellation requested. Waiting for current operation to finish...")
         self.ui_update_queue.put(
             {"type": "set_buttons_enabled", "payload": {"enabled": True}}
         )
@@ -100,15 +102,7 @@ class Presenter:
             logger.warning(
                 f"Filter text exceeds maximum length of {MAX_FILTER_LENGTH} characters."
             )
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {
-                        "text": f"Filter text too long (max {MAX_FILTER_LENGTH} chars)",
-                        "is_error": True,
-                    },
-                }
-            )
+            self._queue_error(f"Filter text too long (max {MAX_FILTER_LENGTH} chars)")
             filter_text = filter_text[:MAX_FILTER_LENGTH]
         self.filter_text = filter_text.lower()
         self._update_display()
@@ -150,34 +144,13 @@ class Presenter:
         """
         if not isinstance(instrument_name, str) or not instrument_name.strip():
             logger.warning(f"Invalid instrument_name: '{instrument_name}'")
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {
-                        "text": "Invalid instrument name provided.",
-                        "is_error": True,
-                    },
-                }
-            )
+            self._queue_error("Invalid instrument name provided.")
             return
 
-        self.ui_update_queue.put(
-            {
-                "type": "status",
-                "payload": {"text": f"Loading history for {instrument_name}..."},
-            }
-        )
+        self._queue_status(f"Loading history for {instrument_name}...")
         history_df = self.model.get_instrument_history(instrument_name)
         if history_df.empty:
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {
-                        "text": f"No history found for {instrument_name}",
-                        "is_error": True,
-                    },
-                }
-            )
+            self._queue_error(f"No history found for {instrument_name}")
             return
 
         # Convert data to numeric before calculating stats
@@ -224,9 +197,7 @@ class Presenter:
                 },
             }
         )
-        self.ui_update_queue.put(
-            {"type": "status", "payload": {"text": "History window displayed."}}
-        )
+        self._queue_status("History window displayed.")
 
     # --- Core Logic (UI-Thread Safe) ---
 
@@ -353,39 +324,39 @@ class Presenter:
 
         filtered_data = []
         for rate in self.raw_data.get("financingRates", []):
-            instrument = rate.get("instrument", "")
-            category = self.model.categorize_instrument(instrument)
-            if self.selected_category != "All" and category != self.selected_category:
-                continue
-            if self.filter_text and self.filter_text not in instrument.lower():
-                continue
+            try:
+                instrument = rate.get("instrument", "")
+                if not instrument:
+                    continue
 
-            currency = self.model.infer_currency(instrument, rate.get("currency", ""))
+                category = self.model.categorize_instrument(instrument)
+                if self.selected_category != "All" and category != self.selected_category:
+                    continue
+                if self.filter_text and self.filter_text not in instrument.lower():
+                    continue
 
-            row_data = [
-                instrument,
-                category,  # Use the calculated category
-                currency,
-                rate.get("days", ""),
-                f"{rate.get('longRate_pct', 0.0):.2f}%",
-                f"{rate.get('shortRate_pct', 0.0):.2f}%",
-                rate.get("longCharge", ""),
-                rate.get("shortCharge", ""),
-                rate.get("units", ""),
-            ]
-            filtered_data.append(row_data)
+                currency = self.model.infer_currency(instrument, rate.get("currency", ""))
+
+                row_data = [
+                    instrument,
+                    category,  # Use the calculated category
+                    currency,
+                    str(rate.get("days", "")),
+                    f"{float(rate.get('longRate_pct', 0.0)):.2f}%",
+                    f"{float(rate.get('shortRate_pct', 0.0)):.2f}%",
+                    str(rate.get("longCharge", "")),
+                    str(rate.get("shortCharge", "")),
+                    str(rate.get("units", "")),
+                ]
+                filtered_data.append(row_data)
+            except (ValueError, TypeError, KeyError) as e:
+                logger.warning(f"Error processing rate for {instrument}: {e}")
+                continue
 
         self.ui_update_queue.put(
             {"type": "update_table", "payload": {"data": filtered_data}}
         )
-        self.ui_update_queue.put(
-            {
-                "type": "status",
-                "payload": {
-                    "text": f"Display updated. Showing {len(filtered_data)} instruments."
-                },
-            }
-        )
+        self._queue_status(f"Display updated. Showing {len(filtered_data)} instruments.")
 
     # --- Background Jobs (Worker Threads) ---
 
@@ -406,22 +377,12 @@ class Presenter:
             # the main table is populated with data from DB or API.
         """
         self.ui_update_queue.put({"type": "show_progress", "payload": {}})
-        self.ui_update_queue.put(
-            {
-                "type": "status",
-                "payload": {"text": "Loading latest data from database..."},
-            }
-        )
+        self._queue_status("Loading latest data from database...")
         date, data = self.model.get_latest_rates()
         if data:
 
             self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {"text": "Data loaded successfully."},
-                }
-            )
+            self._queue_status("Data loaded successfully.")
         else:
             self._fetch_job(source="initial", is_initial=True)
 
@@ -446,13 +407,9 @@ class Presenter:
             >>> # presenter.executor.submit(presenter._fetch_job, source="initial", is_initial=True)
             # Expected: UI is updated with fetch status, progress, and new data if successful.
         """
-        if self._is_cancellation_requested:
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {"text": "Update cancelled.", "is_error": True},
-                }
-            )
+        if self._cancellation_event.is_set():
+            self._cancellation_event.clear()
+            self._queue_error("Update cancelled.")
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
             self.ui_update_queue.put(
                 {"type": "set_buttons_enabled", "payload": {"enabled": True}}
@@ -460,36 +417,15 @@ class Presenter:
             return
 
         if is_initial:
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {"text": "No local data. Fetching from API..."},
-                }
-            )
+            self._queue_status("No local data. Fetching from API...")
 
         new_data = None
         if source == "manual":
             new_data = self.model.fetch_and_save_rates(save_to_db=False)
             if new_data:
-                self.ui_update_queue.put(
-                    {
-                        "type": "status",
-                        "payload": {
-                            "text": "Manual update successful (not saved to DB).",
-                            "is_error": False,
-                        },
-                    }
-                )
+                self._queue_status("Manual update successful (not saved to DB).")
             else:
-                self.ui_update_queue.put(
-                    {
-                        "type": "status",
-                        "payload": {
-                            "text": "Manual update failed. Please try again or check API connectivity.",
-                            "is_error": True,
-                        },
-                    }
-                )
+                self._queue_error("Manual update failed. Please try again or check API connectivity.")
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
             self.ui_update_queue.put(
                 {"type": "set_buttons_enabled", "payload": {"enabled": True}}
@@ -497,25 +433,9 @@ class Presenter:
         elif source == "scheduled" or source == "initial":
             new_data = self.model.fetch_and_save_rates(save_to_db=True)
             if new_data:
-                self.ui_update_queue.put(
-                    {
-                        "type": "status",
-                        "payload": {
-                            "text": "API fetch successful and saved to database.",
-                            "is_error": False,
-                        },
-                    }
-                )
+                self._queue_status("API fetch successful and saved to database.")
             else:
-                self.ui_update_queue.put(
-                    {
-                        "type": "status",
-                        "payload": {
-                            "text": "API fetch failed. Please check API connectivity.",
-                            "is_error": True,
-                        },
-                    }
-                )
+                self._queue_error("API fetch failed. Please check API connectivity.")
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
             self.ui_update_queue.put(
                 {"type": "set_buttons_enabled", "payload": {"enabled": True}}
@@ -536,23 +456,10 @@ class Presenter:
             logger.info("Scheduler started successfully.")
         except Exception as e:
             logger.exception("Scheduler failed to start.")
-            self.ui_update_queue.put(
-                {
-                    "type": "status",
-                    "payload": {
-                        "text": f"Scheduler failed to start: {str(e)}",
-                        "is_error": True,
-                    },
-                }
-            )
+            self._queue_error(f"Scheduler failed to start: {str(e)}")
 
     def _scheduled_update_job(self):
         """Perform the scheduled update job."""
         self.ui_update_queue.put({"type": "show_progress", "payload": {}})
-        self.ui_update_queue.put(
-            {
-                "type": "status",
-                "payload": {"text": "Performing scheduled update..."},
-            }
-        )
+        self._queue_status("Performing scheduled update...")
         self._fetch_job(source="scheduled")

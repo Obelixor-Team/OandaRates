@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional, Any
 import logging
 import functools
+from contextlib import contextmanager
 
 import pandas as pd
 import requests
@@ -40,7 +41,19 @@ class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
     def __init__(self):
-        self.session = Session()
+        pass
+
+    @contextmanager
+    def get_session(self):
+        session = Session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     def close(self):
         """Closes the database session."""
@@ -157,6 +170,8 @@ class Model:
             ...     print(rates_data['financingRates'][0]['instrument'])
             EUR_USD
         """
+        if not HEADERS.get("Authorization"):
+            raise ValueError("OANDA_API_KEY environment variable is not set or is empty.")
         try:
             response = requests.get(  # nosec B113
                 API_URL,
@@ -171,21 +186,21 @@ class Model:
                 return None
 
             if save_to_db:
-                today = datetime.now().strftime("%Y-%m-%d")
-                try:
-                    existing = self.session.query(Rate).filter_by(date=today).first()
-                    raw_data_str = json.dumps(data)
-                    if existing:
-                        existing.raw_data = raw_data_str
-                    else:
-                        new_rate = Rate(date=today, raw_data=raw_data_str)
-                        self.session.add(new_rate)
-                    self.session.commit()
-                except exc.SQLAlchemyError as e:
-                    logger.error(f"Database error occurred: {e}")
-                    self.session.rollback()
-                    logger.info("Database session rolled back.")
-                    return None
+                with self.get_session() as session:
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    try:
+                        existing = session.query(Rate).filter_by(date=today).first()
+                        raw_data_str = json.dumps(data)
+                        if existing:
+                            existing.raw_data = raw_data_str
+                        else:
+                            new_rate = Rate(date=today, raw_data=raw_data_str)
+                            session.add(new_rate)
+                        self.get_instrument_history.cache_clear()
+                    except exc.SQLAlchemyError as e:
+                        logger.error(f"Database error occurred: {e}")
+                        logger.info("Database session rolled back.")
+                        return None
             return data
 
         except requests.exceptions.RequestException as e:
@@ -213,10 +228,11 @@ class Model:
             # Output might look like:
             # Latest rates on 2023-10-27: EUR_USD
         """
-        rate = self.session.query(Rate).order_by(Rate.date.desc()).first()
-        if rate:
-            return str(rate.date), json.loads(rate.raw_data)
-        return None, None
+        with self.get_session() as session:
+            rate = session.query(Rate).order_by(Rate.date.desc()).first()
+            if rate:
+                return str(rate.date), json.loads(rate.raw_data)
+            return None, None
 
     @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
@@ -249,21 +265,22 @@ class Model:
             # 1  2023-01-02      0.015      -0.025
         """
         history = []
-        rates: list[Rate] = self.session.query(Rate).order_by(Rate.date.asc()).all()
-        for rate_entry in rates:
-            try:
-                data = json.loads(str(rate_entry.raw_data))
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON for rate on {rate_entry.date}: {e}")
-                continue  # Skip this entry and continue with the next
+        with self.get_session() as session:
+            rates: list[Rate] = session.query(Rate).order_by(Rate.date.asc()).all()
+            for rate_entry in rates:
+                try:
+                    data = json.loads(str(rate_entry.raw_data))
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON for rate on {rate_entry.date}: {e}")
+                    continue  # Skip this entry and continue with the next
 
-            for instrument_data in data.get("financingRates", []):
-                if instrument_data.get("instrument") == instrument_name:
-                    history.append(
-                        {
-                            "date": rate_entry.date,
-                            "long_rate": instrument_data.get("longRate"),
-                            "short_rate": instrument_data.get("shortRate"),
-                        }
-                    )
+                for instrument_data in data.get("financingRates", []):
+                    if instrument_data.get("instrument") == instrument_name:
+                        history.append(
+                            {
+                                "date": rate_entry.date,
+                                "long_rate": instrument_data.get("longRate"),
+                                "short_rate": instrument_data.get("shortRate"),
+                            }
+                        )
         return pd.DataFrame(history)
