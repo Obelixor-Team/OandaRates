@@ -543,13 +543,18 @@ class Presenter:
         """
         self._queue_show_progress()
         self._queue_status("Loading latest data from database...")
-        date, data = self.model.get_latest_rates()
-        if data:
-
-            self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
-            self._queue_status("Data loaded successfully.")
-        else:
-            self._fetch_job(source="initial", is_initial=True)
+        try:
+            date, data = self.model.get_latest_rates()
+            if data:
+                self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
+                self._queue_status("Data loaded successfully.")
+            else:
+                self._fetch_job(source="initial", is_initial=True)
+        except Exception as e:
+            logger.exception("Error during initial data load from database.")
+            self._queue_error(f"Failed to load initial data: {e}")
+            self._queue_hide_progress()
+            self._queue_enable_buttons(True)
 
     def _fetch_job(self, source: str = "manual", is_initial: bool = False):
         """Fetch new data from the API."""
@@ -564,22 +569,25 @@ class Presenter:
             self._queue_status("No local data. Fetching from API...")
 
         new_data = None
-        if source == "manual":
-            new_data = self.model.fetch_and_save_rates(save_to_db=False)
-            if new_data:
-                self._queue_status("Manual update successful (not saved to DB).")
-            else:
-                self._queue_error(
-                    "Manual update failed. Please try again or check API connectivity."
-                )
-            self._queue_hide_progress()
-            self._queue_enable_buttons(True)
-        elif source == "scheduled" or source == "initial":
-            new_data = self.model.fetch_and_save_rates(save_to_db=True)
-            if new_data:
-                self._queue_status("API fetch successful and saved to database.")
-            else:
-                self._queue_error("API fetch failed. Please check API connectivity.")
+        try:
+            if source == "manual":
+                new_data = self.model.fetch_and_save_rates(save_to_db=False)
+                if new_data:
+                    self._queue_status("Manual update successful (not saved to DB).")
+                else:
+                    self._queue_error(
+                        "Manual update failed. Please try again or check API connectivity."
+                    )
+            elif source == "scheduled" or source == "initial":
+                new_data = self.model.fetch_and_save_rates(save_to_db=True)
+                if new_data:
+                    self._queue_status("API fetch successful and saved to database.")
+                else:
+                    self._queue_error("API fetch failed. Please check API connectivity.")
+        except Exception as e:
+            logger.exception(f"Error during API fetch job (source: {source}).")
+            self._queue_error(f"API fetch failed: {e}")
+        finally:
             self._queue_hide_progress()
             self._queue_enable_buttons(True)
 
