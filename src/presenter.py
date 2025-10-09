@@ -49,7 +49,7 @@ class Presenter:
                     logger.info("Scheduler shut down.")
             except Exception as e:
                 logger.warning(f"Error shutting down scheduler: {e}")
-        
+
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
         self.model.close()

@@ -44,7 +44,7 @@ class Model:
         self.engine = create_engine(
             f"sqlite:///{DB_FILE}",
             pool_pre_ping=True,  # Verify connections before using
-            pool_recycle=3600    # Recycle connections after 1 hour
+            pool_recycle=3600,  # Recycle connections after 1 hour
         )
         self.Session = Session
 
@@ -118,14 +118,14 @@ class Model:
 
     def infer_currency(self, instrument_name: str, api_currency: str) -> str:
         """Infers the currency from the instrument name or falls back to API provided currency.
-    
+
         Args:
             instrument_name: The name of the instrument.
             api_currency: The currency provided by the API.
-            
+
         Returns:
             str: The inferred currency.
-            
+
         Example:
             >>> model = Model()
             >>> model.infer_currency("EUR/USD", "USD")
@@ -212,7 +212,7 @@ class Model:
                     logger.error(f"Database error occurred: {e}")
                     logger.info("Database session rolled back.")
                     return None
-            
+
             return data
 
         except requests.exceptions.RequestException as e:
@@ -248,6 +248,7 @@ class Model:
                 except json.JSONDecodeError as e:
                     logger.error(f"Failed to parse latest rate data: {e}")
                     return None, None
+            return None, None
 
     @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
