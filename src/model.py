@@ -101,16 +101,38 @@ class Model:
     def fetch_and_save_rates(self, save_to_db: bool = True) -> Optional[Dict]:
         """Fetch financing rates from the OANDA API and optionally save to the database.
 
+        This method sends a GET request to the OANDA API to retrieve the latest
+        financing rates. If `save_to_db` is True, it will store the raw JSON
+        response in the SQLite database.
+
         Args:
             save_to_db: Whether to save the fetched data to the database.
 
         Returns:
-            Optional[Dict]: The fetched data, or None on failure.
+            Optional[Dict]: The fetched data as a dictionary, or None on failure.
+            Example of returned data:
+            {
+                "financingRates": [
+                    {
+                        "instrument": "EUR_USD",
+                        "longRate": "0.0083",
+                        "shortRate": "-0.0133"
+                    },
+                    ...
+                ]
+            }
 
         Raises:
             requests.exceptions.RequestException: If the API request fails.
             ValueError: If the API response is malformed.
             sqlalchemy.exc.SQLAlchemyError: If database operations fail.
+
+        Example:
+            >>> model = Model()
+            >>> rates_data = model.fetch_and_save_rates(save_to_db=False)
+            >>> if rates_data:
+            ...     print(rates_data['financingRates'][0]['instrument'])
+            EUR_USD
         """
         try:
             response = requests.get(  # nosec B113

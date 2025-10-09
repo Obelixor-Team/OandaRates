@@ -83,7 +83,7 @@ Based on the code review provided for the OANDA Financing Terminal application, 
   - Benefit: Reduces risk of errors or potential injection attacks.
 
 #### **7. Documentation**
-- [ ] **Enhance Docstrings with Examples** (Medium Priority, Medium Effort)
+- [x] **Enhance Docstrings with Examples** (Medium Priority, Medium Effort)
   - Add usage examples to docstrings for complex methods (e.g., `Model.fetch_and_save_rates`, `Presenter.on_instrument_double_clicked`).
   - Benefit: Improves code understanding for developers.
 

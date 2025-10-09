@@ -89,7 +89,28 @@ class Presenter:
         self._update_display()
 
     def on_instrument_double_clicked(self, instrument_name: str):
-        """Handle a double-click event on the table to show history."""
+        """Handle a double-click event on the table to show history.
+
+        This method is called when a user double-clicks on an instrument in the
+        main table. It retrieves the historical data for the selected instrument
+        from the model, calculates statistics, and then displays the history
+        in a new dialog window.
+
+        Args:
+            instrument_name: The name of the instrument that was double-clicked.
+
+        Example:
+            >>> # This method is typically connected to a GUI event signal.
+            >>> # In the View class:
+            >>> # self.table.itemDoubleClicked.connect(self._on_table_double_click)
+            >>> # def _on_table_double_click(self, item):
+            ... #     instrument_name = self.table.item(item.row(), 0).text()
+            ... #     self._presenter.on_instrument_double_clicked(instrument_name)
+            >>>
+            >>> # Direct call for testing:
+            >>> presenter.on_instrument_double_clicked("EUR_USD")
+            # This would trigger the history window to be displayed for EUR_USD.
+        """
         if not isinstance(instrument_name, str) or not instrument_name.strip():
             logger.warning(f"Invalid instrument_name: '{instrument_name}'")
             self.view.set_status("Invalid instrument name provided.", is_error=True)
