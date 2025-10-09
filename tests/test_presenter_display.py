@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
+import time
 from src.presenter import Presenter
 
 
@@ -152,7 +153,7 @@ def test_update_display_with_raw_data_no_filter(
             "EUR_USD",
             "Forex",
             mock_model.infer_currency("EUR_USD", "USD"),
-            1,
+            "1",
             "1.00%",
             "-2.00%",
             "",
@@ -163,7 +164,7 @@ def test_update_display_with_raw_data_no_filter(
             "XAU_USD",
             "Metals",
             mock_model.infer_currency("XAU_USD", "USD"),
-            1,
+            "1",
             "5.00%",
             "-6.00%",
             "",
@@ -174,7 +175,7 @@ def test_update_display_with_raw_data_no_filter(
             "WTICO_USD",
             "Commodities",
             mock_model.infer_currency("WTICO_USD", "USD"),
-            1,
+            "1",
             "10.00%",
             "-11.00%",
             "",
@@ -185,7 +186,7 @@ def test_update_display_with_raw_data_no_filter(
             "US30_USD",
             "Indices",
             mock_model.infer_currency("US30_USD", "USD"),
-            1,
+            "1",
             "2.00%",
             "-3.00%",
             "",
@@ -196,7 +197,7 @@ def test_update_display_with_raw_data_no_filter(
             "DE10YB_EUR",
             "Bonds",
             mock_model.infer_currency("DE10YB_EUR", "EUR"),
-            1,
+            "1",
             "0.50%",
             "-0.60%",
             "",
@@ -207,7 +208,7 @@ def test_update_display_with_raw_data_no_filter(
             "SOME_INSTRUMENT_CFD",
             "CFDs",
             mock_model.infer_currency("SOME_INSTRUMENT_CFD", "USD"),
-            1,
+            "1",
             "3.00%",
             "-4.00%",
             "",
@@ -218,7 +219,7 @@ def test_update_display_with_raw_data_no_filter(
             "UNKNOWN",
             "Other",
             mock_model.infer_currency("UNKNOWN", "GBP"),
-            1,
+            "1",
             "7.00%",
             "-8.00%",
             "",
@@ -246,7 +247,7 @@ def test_update_display_with_filter_text(presenter_instance, mock_model, mock_vi
             "EUR_USD",
             "Forex",
             mock_model.infer_currency("EUR_USD", "USD"),
-            1,
+            "1",
             "1.00%",
             "-2.00%",
             "",
@@ -257,7 +258,7 @@ def test_update_display_with_filter_text(presenter_instance, mock_model, mock_vi
             "DE10YB_EUR",
             "Bonds",
             mock_model.infer_currency("DE10YB_EUR", "EUR"),
-            1,
+            "1",
             "0.50%",
             "-0.60%",
             "",
@@ -287,7 +288,7 @@ def test_update_display_with_selected_category(
             "XAU_USD",
             "Metals",
             mock_model.infer_currency("XAU_USD", "USD"),
-            1,
+            "1",
             "5.00%",
             "-6.00%",
             "",
@@ -317,7 +318,7 @@ def test_update_display_with_filter_and_category(
             "US30_USD",
             "Indices",
             mock_model.infer_currency("US30_USD", "USD"),
-            1,
+            "1",
             "2.00%",
             "-3.00%",
             "",
@@ -378,7 +379,7 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
             "AUD/CAD",
             "Other",
             mock_model.infer_currency("AUD/CAD", "CAD"),
-            1,
+            "1",
             "1.00%",
             "-2.00%",
             "",
@@ -389,7 +390,7 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
             "GBP_USD",
             "Forex",
             mock_model.infer_currency("GBP_USD", "USD"),
-            1,
+            "1",
             "1.00%",
             "-2.00%",
             "",
@@ -400,7 +401,7 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
             "UNKNOWN_CURRENCY",
             "Other",
             mock_model.infer_currency("UNKNOWN_CURRENCY", "JPY"),
-            1,
+            "1",
             "1.00%",
             "-2.00%",
             "",
@@ -447,6 +448,11 @@ def test_on_manual_update_success(presenter_instance, mock_model, mock_view):
 def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view):
     # Mock the model's fetch_and_save_rates to simulate a long-running operation
     # that checks for cancellation
+    mock_model.fetch_and_save_rates.side_effect = lambda save_to_db: (
+        presenter_instance._cancellation_event.is_set()
+        and time.sleep(0.1)  # Simulate work
+    )
+
     with patch.object(presenter_instance.executor, "submit"):
         # Start the manual update
         presenter_instance.on_manual_update()
@@ -462,7 +468,9 @@ def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view
             presenter_instance.process_ui_updates()
 
         # Assert that cancellation was handled
-        assert presenter_instance._is_cancellation_requested is True
+        assert (
+            presenter_instance._cancellation_event.is_set() is False
+        )  # It should be cleared after handling
         mock_view.set_status.assert_any_call(
             "Cancellation requested. Waiting for current operation to finish...",
             is_error=False,

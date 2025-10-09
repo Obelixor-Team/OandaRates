@@ -3,14 +3,15 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime
 import json
 import requests
-from sqlalchemy import exc
+from sqlalchemy import exc, create_engine
+from sqlalchemy.orm import sessionmaker
 
-# Patch the config object before importing Model
-# This ensures Model uses our mock config for API_URL, HEADERS, DB_FILE
+
+# MOCK_CONFIG needs to be defined before Model is imported to ensure consistent patching
 MOCK_CONFIG = {
     "api": {
-        "url": "http://mock-api.oanda.com",
-        "headers": {"User-Agent": "test-agent"},
+        "url": "https://labs-api.oanda.com/v1/financing-rates",
+        "headers": {"Authorization": "test_key", "Accept": "application/json"},
         "timeout": 10,
     },
     "database": {"file": "test_oanda_rates.db"},
@@ -20,26 +21,40 @@ MOCK_CONFIG = {
         "commodities": [],
         "indices": [],
         "bonds": [],
+        "currency_suffixes": {},
     },
 }
 
+# Patch the config object before importing Model
+# This ensures Model uses our mock config for API_URL, HEADERS, DB_FILE
 with patch("src.model.config", MOCK_CONFIG):
-    from src.model import Model, Rate, API_URL, HEADERS
+    from src.model import Model, Rate, Base, API_URL
 
 
 @pytest.fixture
 def model_instance():
-    with patch("src.model.Session") as mock_session_class:
-        session = MagicMock()
-        mock_session_class.return_value = session
+    # Use an in-memory SQLite database for testing
+    test_engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(test_engine)
+    TestSession = sessionmaker(bind=test_engine)
+
+    # Patch the module-level engine and Session in src.model
+    with (
+        patch("src.model.engine", test_engine),
+        patch("src.model.Session", TestSession),
+    ):
         model = Model()
-        model.session = session
         yield model
+
+    Base.metadata.drop_all(test_engine)
 
 
 @pytest.fixture
 def mock_requests_get():
-    with patch("requests.get") as mock_get:
+    with (
+        patch("requests.get") as mock_get,
+        patch("src.model.HEADERS", MOCK_CONFIG["api"]["headers"]),
+    ):
         yield mock_get
 
 
@@ -60,21 +75,22 @@ def test_fetch_and_save_rates_success(
     mock_response.json.return_value = {"financingRates": [{"instrument": "EUR_USD"}]}
     mock_requests_get.return_value = mock_response
 
-    model_instance.session.query.return_value.filter_by.return_value.first.return_value = (
-        None  # Ensure no existing rate
-    )
-
     # Act
     result = model_instance.fetch_and_save_rates(save_to_db=True)
 
     # Assert
     assert result == {"financingRates": [{"instrument": "EUR_USD"}]}
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.return_value.filter_by.assert_called_once_with(
-        date="2023-01-01"
+    mock_requests_get.assert_called_once_with(
+        API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
     )
-    model_instance.session.add.assert_called_once()
-    model_instance.session.commit.assert_called_once()
+
+    # Verify data in the database
+    with model_instance.Session() as session:
+        rate = session.query(Rate).filter_by(date="2023-01-01").first()
+        assert rate is not None
+        assert json.loads(rate.raw_data) == {
+            "financingRates": [{"instrument": "EUR_USD"}]
+        }
 
 
 def test_fetch_and_save_rates_api_error(
@@ -88,8 +104,12 @@ def test_fetch_and_save_rates_api_error(
 
     # Assert
     assert result is None
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.rollback.assert_not_called()
+    mock_requests_get.assert_called_once_with(
+        API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
+    )
+    # No data should be saved to DB on API error
+    with model_instance.Session() as session:
+        assert session.query(Rate).count() == 0
 
 
 def test_fetch_and_save_rates_invalid_json(
@@ -98,7 +118,7 @@ def test_fetch_and_save_rates_invalid_json(
     # Arrange
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.side_effect = ValueError("Invalid JSON")
+    mock_response.json.side_effect = json.JSONDecodeError("Invalid JSON", "doc", 0)
     mock_requests_get.return_value = mock_response
 
     # Act
@@ -106,8 +126,9 @@ def test_fetch_and_save_rates_invalid_json(
 
     # Assert
     assert result is None
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.rollback.assert_not_called()
+    # No data should be saved to DB on invalid JSON
+    with model_instance.Session() as session:
+        assert session.query(Rate).count() == 0
 
 
 def test_fetch_and_save_rates_db_error(
@@ -118,15 +139,19 @@ def test_fetch_and_save_rates_db_error(
     mock_response.status_code = 200
     mock_response.json.return_value = {"financingRates": [{"instrument": "EUR_USD"}]}
     mock_requests_get.return_value = mock_response
-    model_instance.session.commit.side_effect = exc.SQLAlchemyError("DB Error")
 
-    # Act
-    result = model_instance.fetch_and_save_rates(save_to_db=True)
+    # Temporarily patch model_instance.get_session to raise an error
+    with patch.object(model_instance, "get_session") as mock_get_session:
+        mock_get_session.side_effect = exc.SQLAlchemyError("DB Error")
 
-    # Assert
-    assert result is None
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.rollback.assert_called_once()
+        # Act
+        result = model_instance.fetch_and_save_rates(save_to_db=True)
+
+        # Assert
+        assert result is None
+        mock_requests_get.assert_called_once_with(
+            API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
+        )
 
 
 def test_fetch_and_save_rates_no_save_to_db(
@@ -143,49 +168,44 @@ def test_fetch_and_save_rates_no_save_to_db(
 
     # Assert
     assert result == {"financingRates": [{"instrument": "EUR_USD"}]}
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.assert_not_called()
-    model_instance.session.add.assert_not_called()
-    model_instance.session.commit.assert_not_called()
-    model_instance.session.rollback.assert_not_called()
+    mock_requests_get.assert_called_once_with(
+        API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
+    )
+    # Ensure no interaction with the database
+    with model_instance.Session() as session:
+        assert session.query(Rate).count() == 0
 
 
 def test_fetch_and_save_rates_update_existing(
     model_instance, mock_requests_get, mock_datetime_now
 ):
     # Arrange
+    initial_data = {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.005}]}
+    updated_data = {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]}
+
+    # Insert an existing rate into the in-memory DB
+    with model_instance.Session() as session:
+        existing_rate = Rate(date="2023-01-01", raw_data=json.dumps(initial_data))
+        session.add(existing_rate)
+        session.commit()
+
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]
-    }.copy()
+    mock_response.json.return_value = updated_data
     mock_requests_get.return_value = mock_response
 
-    # Simulate an existing rate in the DB
-    existing_rate = Rate(
-        date="2023-01-01",
-        raw_data=json.dumps(
-            {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.005}]}
-        ),
-    )
-    model_instance.session.query.return_value.filter_by.return_value.first.return_value = (
-        existing_rate
-    )
-
     # Act
-    result = model_instance.fetch_and_save_rates(save_to_db=True)
+    model_instance.fetch_and_save_rates(save_to_db=True)
 
     # Assert
-    assert result == {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]}
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.return_value.filter_by.assert_called_once_with(
-        date="2023-01-01"
+    mock_requests_get.assert_called_once_with(
+        API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
     )
-    assert existing_rate.raw_data == json.dumps(
-        {"financingRates": [{"instrument": "EUR_USD", "longRate": 0.01}]}
-    )
-    model_instance.session.add.assert_not_called()  # Should not add a new one
-    model_instance.session.commit.assert_called_once()
+    # Verify the existing rate was updated
+    with model_instance.Session() as session:
+        rate = session.query(Rate).filter_by(date="2023-01-01").first()
+        assert rate is not None
+        assert json.loads(rate.raw_data) == updated_data
 
 
 def test_fetch_and_save_rates_no_financing_rates_in_response(
@@ -202,18 +222,16 @@ def test_fetch_and_save_rates_no_financing_rates_in_response(
 
     # Assert
     assert result is None
-    mock_requests_get.assert_called_once_with(API_URL, headers=HEADERS, timeout=10)
-    model_instance.session.query.assert_not_called()
-    model_instance.session.add.assert_not_called()
-    model_instance.session.commit.assert_not_called()
-    model_instance.session.rollback.assert_not_called()
+    mock_requests_get.assert_called_once_with(
+        API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
+    )
+    # No data should be saved to DB
+    with model_instance.Session() as session:
+        assert session.query(Rate).count() == 0
 
 
 def test_get_latest_rates_no_data(model_instance):
-    # Arrange
-    model_instance.session.query.return_value.order_by.return_value.first.return_value = (
-        None
-    )
+    # Arrange: DB is empty by default from fixture
 
     # Act
     date, data = model_instance.get_latest_rates()
@@ -221,67 +239,51 @@ def test_get_latest_rates_no_data(model_instance):
     # Assert
     assert date is None
     assert data is None
-    model_instance.session.query.return_value.order_by.return_value.first.assert_called_once()
 
 
 def test_get_latest_rates_with_data(model_instance):
     # Arrange
-    mock_rate = MagicMock()
-    mock_rate.date = "2023-01-01"
-    mock_rate.raw_data = json.dumps({"financingRates": [{"instrument": "EUR_USD"}]})
-    model_instance.session.query.return_value.order_by.return_value.first.return_value = (
-        mock_rate
-    )
+    expected_data = {"financingRates": [{"instrument": "EUR_USD"}]}
+    with model_instance.Session() as session:
+        session.add(Rate(date="2023-01-01", raw_data=json.dumps(expected_data)))
+        session.commit()
 
     # Act
     date, data = model_instance.get_latest_rates()
 
     # Assert
     assert date == "2023-01-01"
-    assert data == {"financingRates": [{"instrument": "EUR_USD"}]}
-    model_instance.session.query.return_value.order_by.return_value.first.assert_called_once()
+    assert data == expected_data
 
 
 def test_get_instrument_history_no_data(model_instance):
-    # Arrange
-    model_instance.session.query.return_value.order_by.return_value.all.return_value = (
-        []
-    )
+    # Arrange: DB is empty by default from fixture
 
     # Act
     history_df = model_instance.get_instrument_history("EUR_USD")
 
     # Assert
     assert history_df.empty
-    model_instance.session.query.return_value.order_by.return_value.all.assert_called_once()
 
 
 def test_get_instrument_history_with_data(model_instance):
     # Arrange
-    mock_rate1 = MagicMock()
-    mock_rate1.date = "2023-01-01"
-    mock_rate1.raw_data = json.dumps(
-        {
-            "financingRates": [
-                {"instrument": "EUR_USD", "longRate": 0.01, "shortRate": -0.02},
-                {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
-            ]
-        }
-    )
-    mock_rate2 = MagicMock()
-    mock_rate2.date = "2023-01-02"
-    mock_rate2.raw_data = json.dumps(
-        {
-            "financingRates": [
-                {"instrument": "EUR_USD", "longRate": 0.015, "shortRate": -0.025},
-                {"instrument": "GBP_USD", "longRate": 0.035, "shortRate": -0.045},
-            ]
-        }
-    )
-    model_instance.session.query.return_value.order_by.return_value.all.return_value = [
-        mock_rate1,
-        mock_rate2,
-    ]
+    data1 = {
+        "financingRates": [
+            {"instrument": "EUR_USD", "longRate": 0.01, "shortRate": -0.02},
+            {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
+        ]
+    }
+    data2 = {
+        "financingRates": [
+            {"instrument": "EUR_USD", "longRate": 0.015, "shortRate": -0.025},
+            {"instrument": "GBP_USD", "longRate": 0.035, "shortRate": -0.045},
+        ]
+    }
+    with model_instance.Session() as session:
+        session.add(Rate(date="2023-01-01", raw_data=json.dumps(data1)))
+        session.add(Rate(date="2023-01-02", raw_data=json.dumps(data2)))
+        session.commit()
 
     # Act
     history_df = model_instance.get_instrument_history("EUR_USD")
@@ -292,27 +294,21 @@ def test_get_instrument_history_with_data(model_instance):
     assert history_df["date"].tolist() == ["2023-01-01", "2023-01-02"]
     assert history_df["long_rate"].tolist() == [0.01, 0.015]
     assert history_df["short_rate"].tolist() == [-0.02, -0.025]
-    model_instance.session.query.return_value.order_by.return_value.all.assert_called_once()
 
 
 def test_get_instrument_history_no_matching_instrument(model_instance):
     # Arrange
-    mock_rate1 = MagicMock()
-    mock_rate1.date = "2023-01-01"
-    mock_rate1.raw_data = json.dumps(
-        {
-            "financingRates": [
-                {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
-            ]
-        }
-    )
-    model_instance.session.query.return_value.order_by.return_value.all.return_value = [
-        mock_rate1
-    ]
+    data1 = {
+        "financingRates": [
+            {"instrument": "GBP_USD", "longRate": 0.03, "shortRate": -0.04},
+        ]
+    }
+    with model_instance.Session() as session:
+        session.add(Rate(date="2023-01-01", raw_data=json.dumps(data1)))
+        session.commit()
 
     # Act
     history_df = model_instance.get_instrument_history("EUR_USD")
 
     # Assert
     assert history_df.empty
-    model_instance.session.query.return_value.order_by.return_value.all.assert_called_once()

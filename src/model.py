@@ -41,7 +41,8 @@ class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
     def __init__(self):
-        pass
+        self.engine = engine
+        self.Session = Session
 
     @contextmanager
     def get_session(self):
@@ -171,7 +172,9 @@ class Model:
             EUR_USD
         """
         if not HEADERS.get("Authorization"):
-            raise ValueError("OANDA_API_KEY environment variable is not set or is empty.")
+            raise ValueError(
+                "OANDA_API_KEY environment variable is not set or is empty."
+            )
         try:
             response = requests.get(  # nosec B113
                 API_URL,
@@ -186,9 +189,9 @@ class Model:
                 return None
 
             if save_to_db:
-                with self.get_session() as session:
-                    today = datetime.now().strftime("%Y-%m-%d")
-                    try:
+                try:
+                    with self.get_session() as session:
+                        today = datetime.now().strftime("%Y-%m-%d")
                         existing = session.query(Rate).filter_by(date=today).first()
                         raw_data_str = json.dumps(data)
                         if existing:
@@ -197,11 +200,13 @@ class Model:
                             new_rate = Rate(date=today, raw_data=raw_data_str)
                             session.add(new_rate)
                         self.get_instrument_history.cache_clear()
-                    except exc.SQLAlchemyError as e:
-                        logger.error(f"Database error occurred: {e}")
-                        logger.info("Database session rolled back.")
-                        return None
-            return data
+                        return data
+                except exc.SQLAlchemyError as e:
+                    logger.error(f"Database error occurred: {e}")
+                    logger.info("Database session rolled back.")
+                    return None
+            else:
+                return data
 
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
@@ -271,7 +276,9 @@ class Model:
                 try:
                     data = json.loads(str(rate_entry.raw_data))
                 except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse JSON for rate on {rate_entry.date}: {e}")
+                    logger.error(
+                        f"Failed to parse JSON for rate on {rate_entry.date}: {e}"
+                    )
                     continue  # Skip this entry and continue with the next
 
                 for instrument_data in data.get("financingRates", []):

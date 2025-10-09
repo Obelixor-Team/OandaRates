@@ -87,7 +87,9 @@ class Presenter:
     def on_cancel_update(self):
         """Handle the 'Cancel Update' button click."""
         self._cancellation_event.set()
-        self._queue_status("Cancellation requested. Waiting for current operation to finish...")
+        self._queue_status(
+            "Cancellation requested. Waiting for current operation to finish..."
+        )
         self.ui_update_queue.put(
             {"type": "set_buttons_enabled", "payload": {"enabled": True}}
         )
@@ -329,12 +331,17 @@ class Presenter:
                     continue
 
                 category = self.model.categorize_instrument(instrument)
-                if self.selected_category != "All" and category != self.selected_category:
+                if (
+                    self.selected_category != "All"
+                    and category != self.selected_category
+                ):
                     continue
                 if self.filter_text and self.filter_text not in instrument.lower():
                     continue
 
-                currency = self.model.infer_currency(instrument, rate.get("currency", ""))
+                currency = self.model.infer_currency(
+                    instrument, rate.get("currency", "")
+                )
 
                 row_data = [
                     instrument,
@@ -355,7 +362,9 @@ class Presenter:
         self.ui_update_queue.put(
             {"type": "update_table", "payload": {"data": filtered_data}}
         )
-        self._queue_status(f"Display updated. Showing {len(filtered_data)} instruments.")
+        self._queue_status(
+            f"Display updated. Showing {len(filtered_data)} instruments."
+        )
 
     # --- Background Jobs (Worker Threads) ---
 
@@ -424,7 +433,9 @@ class Presenter:
             if new_data:
                 self._queue_status("Manual update successful (not saved to DB).")
             else:
-                self._queue_error("Manual update failed. Please try again or check API connectivity.")
+                self._queue_error(
+                    "Manual update failed. Please try again or check API connectivity."
+                )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
             self.ui_update_queue.put(
                 {"type": "set_buttons_enabled", "payload": {"enabled": True}}

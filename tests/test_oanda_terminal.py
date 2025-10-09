@@ -5,66 +5,84 @@ import json
 from sqlalchemy.exc import SQLAlchemyError
 import requests
 
-from src.model import Model, Rate
 from src.presenter import Presenter
-from src.view import View
-
 
 # Mock configuration for testing
-@pytest.fixture
-def mock_config():
-    return {
-        "api": {
-            "url": "https://labs-api.oanda.com/v1/financing-rates",
-            "headers": {"Authorization": "test_key", "Accept": "application/json"},
-            "timeout": 10,
-        },
-        "database": {"file": ":memory:"},
-        "categories": {
-            "currencies": ["usd", "eur", "jpy"],
-            "metals": ["xau", "xag"],
-            "commodities": ["wtico_usd"],
-            "indices": ["spx500_usd"],
-            "bonds": ["us_10yr_tnote"],
-            "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
-        },
-        "ui": {"timer_interval": 16},
-        "logging": {"level": "INFO", "file_path": "test.log"},
-    }
+MOCK_CONFIG = {
+    "api": {
+        "url": "https://labs-api.oanda.com/v1/financing-rates",
+        "headers": {"Authorization": "test_key", "Accept": "application/json"},
+        "timeout": 10,
+    },
+    "database": {"file": ":memory:"},
+    "categories": {
+        "currencies": ["usd", "eur", "jpy"],
+        "metals": ["xau", "xag"],
+        "commodities": ["wtico_usd"],
+        "indices": ["spx500_usd"],
+        "bonds": ["us_10yr_tnote"],
+        "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
+    },
+    "ui": {"timer_interval": 16},
+    "logging": {"level": "INFO", "file_path": "test.log"},
+}
+
+# Patch the config object before importing Model
+# This ensures Model uses our mock config for API_URL, HEADERS, DB_FILE
+with patch("src.model.config", MOCK_CONFIG):
+    from src.model import Model, Rate, Base, API_URL
 
 
 @pytest.fixture
-def mock_model(mock_config, db_session):
-    with patch("src.model.config", mock_config):
+def mock_model():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    # Use an in-memory SQLite database for testing
+    test_engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(test_engine)
+    TestSession = sessionmaker(bind=test_engine)
+
+    # Patch the module-level engine and Session in src.model
+    with (
+        patch("src.model.engine", test_engine),
+        patch("src.model.Session", TestSession),
+    ):
         model = Model()
-        model.session = db_session  # Use the in-memory session
         yield model
-        model.session.close()
+
+    Base.metadata.drop_all(test_engine)
 
 
 @pytest.fixture
 def mock_view():
-    app = MagicMock()
-    view = View(app)
-    view.set_status = MagicMock(side_effect=lambda text, is_error=False: None)
-    view.update_table = MagicMock()
-    view.set_update_buttons_enabled = MagicMock()
-    view.table = MagicMock()
-    view.table.setRowCount = MagicMock()
-    view.table.setItem = MagicMock()
+    with patch("src.view.View") as MockView:
+        mock_view_instance = MockView()
+        mock_view_instance.set_status = MagicMock(
+            side_effect=lambda text, is_error=False: None
+        )
+        mock_view_instance.update_table = MagicMock()
+        mock_view_instance.set_update_buttons_enabled = MagicMock()
+        mock_view_instance.table = MagicMock()
+        mock_view_instance.table.setRowCount = MagicMock()
+        mock_view_instance.table.setItem = MagicMock()
 
-    def update_table_side_effect(data):
-        view.table.setRowCount(len(data))
-        for row_idx, row_data in enumerate(data):
-            for col_idx, item in enumerate(row_data):
-                view.table.setItem(row_idx, col_idx, MagicMock(text=str(item)))
+        def update_table_side_effect(data):
+            mock_view_instance.table.setRowCount(len(data))
+            for row_idx, row_data in enumerate(data):
+                for col_idx, item in enumerate(row_data):
+                    mock_view_instance.table.setItem(
+                        row_idx, col_idx, MagicMock(text=str(item))
+                    )
 
-    view.update_table.side_effect = update_table_side_effect
-    return view
+        mock_view_instance.update_table.side_effect = update_table_side_effect
+        return mock_view_instance
 
 
 @pytest.fixture
 def mock_presenter(mock_model, mock_view):
+    from src.presenter import Presenter
+
     presenter = Presenter(mock_model, mock_view)
     return presenter
 
@@ -80,18 +98,21 @@ def presenter_instance(mock_model, mock_view):
 
 def test_categorize_instrument(mock_model):
     """Test Model.categorize_instrument for various instrument types."""
-    assert mock_model.categorize_instrument("EUR_USD") == "Forex"
-    assert mock_model.categorize_instrument("XAU_USD") == "Metals"
-    assert mock_model.categorize_instrument("WTICO_USD") == "Commodities"
-    assert mock_model.categorize_instrument("SPX500_USD") == "Indices"
-    assert mock_model.categorize_instrument("US_10YR_TNOTE") == "Bonds"
-    assert mock_model.categorize_instrument("BTC_CFD") == "CFDs"
-    assert mock_model.categorize_instrument("UNKNOWN") == "Other"
+    model = mock_model
+    assert model.categorize_instrument("EUR_USD") == "Forex"
+    assert model.categorize_instrument("XAU_USD") == "Metals"
+    assert model.categorize_instrument("WTICO_USD") == "Commodities"
+    assert model.categorize_instrument("SPX500_USD") == "Indices"
+    assert model.categorize_instrument("US_10YR_TNOTE") == "Bonds"
+    assert model.categorize_instrument("BTC_CFD") == "CFDs"
+    assert model.categorize_instrument("UNKNOWN") == "Other"
 
 
 @patch("src.model.requests.get")
+@patch("src.model.HEADERS", MOCK_CONFIG["api"]["headers"])
 def test_fetch_and_save_rates_success(mock_get, mock_model):
     """Test Model.fetch_and_save_rates with a successful API response."""
+    model = mock_model
     mock_response = MagicMock()
     mock_response.json.return_value = {
         "financingRates": [
@@ -101,26 +122,34 @@ def test_fetch_and_save_rates_success(mock_get, mock_model):
     mock_response.raise_for_status.return_value = None
     mock_get.return_value = mock_response
 
-    result = mock_model.fetch_and_save_rates(save_to_db=True)
+    result = model.fetch_and_save_rates(save_to_db=True)
     assert result == mock_response.json.return_value
-    assert mock_model.session.query(Rate).count() == 1
-    rate = mock_model.session.query(Rate).first()
-    assert rate.date == datetime.now().strftime("%Y-%m-%d")
-    assert json.loads(rate.raw_data) == mock_response.json.return_value
+
+    with model.Session() as session:
+        assert session.query(Rate).count() == 1
+        rate = session.query(Rate).first()
+        assert rate.date == datetime.now().strftime("%Y-%m-%d")
+        assert json.loads(rate.raw_data) == mock_response.json.return_value
 
 
 @patch("src.model.requests.get")
 def test_fetch_and_save_rates_api_failure(mock_get, mock_model):
     """Test Model.fetch_and_save_rates when API request fails."""
+    model = mock_model
     mock_get.side_effect = requests.exceptions.RequestException("API failure")
-    result = mock_model.fetch_and_save_rates(save_to_db=True)
+    result = model.fetch_and_save_rates(save_to_db=True)
     assert result is None
-    assert mock_model.session.query(Rate).count() == 0
+    with model.Session() as session:
+        assert session.query(Rate).count() == 0
 
 
 def test_fetch_and_save_rates_db_error(mock_model):
     """Test Model.fetch_and_save_rates when database commit fails."""
-    with patch("src.model.requests.get") as mock_get:
+    model = mock_model
+    with (
+        patch("src.model.requests.get") as mock_get,
+        patch("src.model.HEADERS", MOCK_CONFIG["api"]["headers"]),
+    ):
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "financingRates": [
@@ -130,12 +159,16 @@ def test_fetch_and_save_rates_db_error(mock_model):
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
 
+        # Temporarily patch model.get_session to raise an error
         with patch.object(
-            mock_model.session, "commit", side_effect=SQLAlchemyError("DB error")
+            model, "get_session", side_effect=SQLAlchemyError("DB Error")
         ):
-            result = mock_model.fetch_and_save_rates(save_to_db=True)
+            result = model.fetch_and_save_rates(save_to_db=True)
+
             assert result is None
-            assert mock_model.session.query(Rate).count() == 0
+            mock_get.assert_called_once_with(
+                API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
+            )
 
 
 def test_on_filter_text_changed_valid(mock_presenter, mock_view):

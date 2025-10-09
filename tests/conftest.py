@@ -5,6 +5,11 @@ from sqlalchemy.orm import sessionmaker
 from src.model import Base
 
 
+@pytest.fixture(autouse=True)
+def mock_headers_authorization(mocker):
+    mocker.patch("src.model.HEADERS", {"Authorization": "Bearer test_token"})
+
+
 @pytest.fixture
 def mock_requests(mocker):
     mock_response = MagicMock()
