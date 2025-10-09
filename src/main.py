@@ -66,8 +66,17 @@ if __name__ == "__main__":
         app = QApplication(sys.argv)
         view_instance, timer, presenter_instance = run_app(app)
         sys.exit(app.exec())
+    except KeyboardInterrupt:
+        logger.info(
+            "Application interrupted by user (Ctrl+C). Shutting down gracefully."
+        )
+        sys.exit(0)
+    except SystemExit as e:
+        logger.info(f"Application exiting with code {e.code}.")
+        # Allow SystemExit to propagate with its code
+        raise
     except Exception:
-        logging.exception("Unhandled exception")
+        logger.exception("Unhandled exception occurred. Application will terminate.")
         sys.exit(1)
     finally:
         if presenter_instance:

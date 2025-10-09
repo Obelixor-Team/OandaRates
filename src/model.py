@@ -66,6 +66,16 @@ class Model:
         """Dispose of the database engine."""
         self.engine.dispose()
 
+    def _parse_json_data(
+        self, raw_data_str: str, date: str
+    ) -> Optional[Dict[str, Any]]:
+        """Helper to parse JSON data and handle errors."""
+        try:
+            return json.loads(raw_data_str)
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON for rate on {date}: {e}")
+            return None
+
     def _retry_with_backoff(
         self,
         func: Callable,
@@ -212,9 +222,30 @@ class Model:
                 return currency
         return api_currency
 
-    @log_performance  # ⭐ NEW
+    @log_performance
     def fetch_and_save_rates(self, save_to_db: bool = True) -> Optional[Dict]:
-        """Fetch financing rates from the OANDA API and optionally save to the database."""
+        """Fetches the latest financing rates from the OANDA API.
+
+        This method attempts to retrieve financing rate data from the configured
+        OANDA API endpoint. It includes retry logic with exponential backoff
+        to handle transient network issues. If successful, the fetched data
+        can optionally be saved to the local SQLite database.
+
+        Args:
+            save_to_db (bool): If True, the fetched data will be saved to the
+                               database. Defaults to True.
+
+        Returns:
+            Optional[Dict]: A dictionary containing the fetched financing rates
+                            if the API call is successful and the response is valid,
+                            otherwise None.
+
+        Raises:
+            ValueError: If the OANDA API key is not configured.
+            requests.exceptions.RequestException: For network-related errors during API calls.
+            json.JSONDecodeError: If the API response is not valid JSON.
+            sqlalchemy.exc.SQLAlchemyError: For errors during database operations.
+        """
         if not HEADERS.get("Authorization"):
             raise ValueError(
                 "OANDA_API_KEY environment variable is not set or is empty."
@@ -272,12 +303,10 @@ class Model:
         if rate_data:
             date = rate_data["date"]
             raw_data_str = rate_data["raw_data"]
-            try:
-                data = json.loads(raw_data_str)
+            data = self._parse_json_data(raw_data_str, date)
+            if data:
                 return date, data
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON for rate on {date}: {e}")
-                return None, None
+            return None, None
 
         return None, None
 
@@ -285,6 +314,12 @@ class Model:
     @log_performance  # ⭐ NEW
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument."""
+        if not isinstance(instrument_name, str) or not instrument_name.strip():
+            logger.warning(
+                f"Invalid instrument_name provided to get_instrument_history: '{instrument_name}'"
+            )
+            return pd.DataFrame()  # Return empty DataFrame for invalid input
+
         history = []
         rates_data = self._query_all_rates_ordered(
             ascending=True
@@ -293,10 +328,8 @@ class Model:
         for rate_entry_data in rates_data:
             date = rate_entry_data["date"]
             raw_data_str = rate_entry_data["raw_data"]
-            try:
-                data = json.loads(raw_data_str)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON for rate on {date}: {e}")
+            data = self._parse_json_data(raw_data_str, date)
+            if not data:
                 continue
 
             for instrument_data in data.get("financingRates", []):

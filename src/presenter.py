@@ -328,81 +328,99 @@ class Presenter:
                         # ⭐ NEW - Handle unknown message types
                         logger.warning(f"Unknown UI update message type: {msg_type}")
 
-                except (
-                    Exception
-                ) as e:  # ⭐ NEW - Catch individual message processing errors
+                except (KeyError, TypeError, ValueError) as e:
+                    logger.error(
+                        f"Data integrity error processing UI update of type '{msg_type}': {e}. Message: {message}"
+                    )
+                except Exception as e:
                     logger.exception(
-                        f"Error processing UI update of type '{msg_type}': {e}"
+                        f"Unexpected error processing UI update of type '{msg_type}': {e}"
                     )
                     # Continue processing other messages
 
         except queue.Empty:
             pass
-        except Exception as e:  # ⭐ NEW - Catch catastrophic errors
-            logger.exception(f"Critical error in UI update processing: {e}")
+        except queue.Full as e:
+            logger.error(f"UI update queue is full: {e}")
+        except Exception as e:
+            logger.critical(f"Catastrophic error in UI update processing: {e}")
 
-    @log_performance  # ⭐ NEW
-    def _update_display(self):
-        """Filter the current data and update the view's table.
-
-        This method applies the current filter text and category selection
-        to the raw data and then updates the main table in the view with
-        the filtered results. It also updates the status bar with the
-        number of instruments displayed.
-
-        Example:
-            >>> # Assuming 'presenter' has loaded some data and has a view attached
-            >>> presenter.filter_text = "eur"
-            >>> presenter.selected_category = "Forex"
-            >>> presenter._update_display()
-            # Expected: The view's table is updated with filtered data,
-            # and the status bar reflects the update.
-        """
-
+    @log_performance
+    def _update_display(self) -> None:
+        """Update the view's table with filtered data."""
         if not self.raw_data or "financingRates" not in self.raw_data:
             self._queue_update_table(data=[])
             return
 
-        filtered_data = []
-        for rate in self.raw_data.get("financingRates", []):
-            try:
-                instrument = rate.get("instrument", "")
-                if not instrument:
-                    continue
-
-                category = self.model.categorize_instrument(instrument)
-                if (
-                    self.selected_category != "All"
-                    and category != self.selected_category
-                ):
-                    continue
-                if self.filter_text and self.filter_text not in instrument.lower():
-                    continue
-
-                currency = self.model.infer_currency(
-                    instrument, rate.get("currency", "")
-                )
-
-                row_data = [
-                    instrument,
-                    category,  # Use the calculated category
-                    currency,
-                    str(rate.get("days", "")),
-                    f"{float(rate.get('longRate_pct', 0.0)):.2f}%",
-                    f"{float(rate.get('shortRate_pct', 0.0)):.2f}%",
-                    str(rate.get("longCharge", "")),
-                    str(rate.get("shortCharge", "")),
-                    str(rate.get("units", "")),
-                ]
-                filtered_data.append(row_data)
-            except (ValueError, TypeError, KeyError) as e:
-                logger.warning(f"Error processing rate for {instrument}: {e}")
-                continue
-
+        filtered_data = self._filter_and_transform_rates()
         self._queue_update_table(data=filtered_data)
         self._queue_status(
             f"Display updated. Showing {len(filtered_data)} instruments."
         )
+
+    def _filter_and_transform_rates(self) -> TableData:
+        """Filters the raw financing rates based on the selected category and filter text,
+        then transforms the matching rates into a format suitable for the UI table.
+
+        This method iterates through all available financing rates, applies the
+        current category and text filters, and processes each rate using `_process_rate`.
+        Any errors during individual rate processing are logged.
+
+        Returns:
+            TableData: A list of lists, where each inner list represents a row
+                       in the UI table, containing filtered and transformed rate data.
+        """
+        filtered_data = []
+        for rate in self.raw_data.get("financingRates", []):
+            try:
+                if not (row := self._process_rate(rate)):
+                    continue
+                filtered_data.append(row)
+            except (ValueError, TypeError, KeyError) as e:
+                logger.warning(
+                    f"Error processing rate for {rate.get('instrument', '')}: {e}"
+                )
+        return filtered_data
+
+    def _process_rate(self, rate: Dict[str, Any]) -> Optional[TableRow]:
+        """Processes a single raw financing rate dictionary into a formatted table row.
+
+        This method applies the current category and text filters to the individual rate.
+        If the rate matches the filters, it extracts and formats relevant data points
+        (instrument name, category, currency, rates, charges, units) into a list
+        representing a table row.
+
+        Args:
+            rate (Dict[str, Any]): A dictionary containing the raw data for a single
+                                   financing rate, typically from the OANDA API.
+
+        Returns:
+            Optional[TableRow]: A list of strings representing a table row if the
+                                rate matches the filters and is successfully processed,
+                                otherwise None.
+        """
+        instrument = rate.get("instrument", "")
+        if not instrument:
+            return None
+
+        category = self.model.categorize_instrument(instrument)
+        if self.selected_category != "All" and category != self.selected_category:
+            return None
+        if self.filter_text and self.filter_text not in instrument.lower():
+            return None
+
+        currency = self.model.infer_currency(instrument, rate.get("currency", ""))
+        return [
+            instrument,
+            category,
+            currency,
+            str(rate.get("days", "")),
+            f"{float(rate.get('longRate_pct', 0.0)):.2f}%",
+            f"{float(rate.get('shortRate_pct', 0.0)):.2f}%",
+            str(rate.get("longCharge", "")),
+            str(rate.get("shortCharge", "")),
+            str(rate.get("units", "")),
+        ]
 
     # --- Background Jobs (Worker Threads) ---
 
