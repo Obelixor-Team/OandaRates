@@ -414,7 +414,6 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
         "Display updated. Showing 3 instruments.", is_error=False
     )
 
-
     def test_on_manual_update_success(presenter_instance, mock_model, mock_view):
         # Mock the model's fetch_and_save_rates to return sample data
         mock_model.fetch_and_save_rates.return_value = SAMPLE_RAW_DATA
@@ -444,6 +443,7 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
         mock_view.set_update_time.assert_called_once()
         mock_view.update_table.assert_called_once()
 
+
 def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view):
     # Mock the model's fetch_and_save_rates to simulate a long-running operation
     # that checks for cancellation
@@ -467,6 +467,7 @@ def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view
             presenter_instance.process_ui_updates()
 
         from unittest.mock import call
+
         # Assert that cancellation was handled
         assert (
             presenter_instance._cancellation_event.is_set() is False
@@ -476,5 +477,8 @@ def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view
             is_error=False,
         )
         mock_view.set_update_buttons_enabled.assert_any_call(True)
-        assert call("Update cancelled.", is_error=True) in mock_view.set_status.call_args_list
+        assert (
+            call("Update cancelled.", is_error=True)
+            in mock_view.set_status.call_args_list
+        )
         mock_view.hide_progress_bar.assert_called_once()

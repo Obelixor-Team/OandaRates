@@ -88,16 +88,14 @@ class Presenter:
         self.ui_update_queue.put({"type": "clear_inputs", "payload": {}})
 
     def _calculate_rate_statistics(
-        self, 
-        series: pd.Series, 
-        rate_type: str
+        self, series: pd.Series, rate_type: str
     ) -> Dict[str, float]:
         """Calculate statistical measures for a rate series.
-        
+
         Args:
             series: Pandas series containing rate data
             rate_type: Type of rate ("Long" or "Short")
-            
+
         Returns:
             Dictionary of statistics
         """
@@ -110,14 +108,13 @@ class Presenter:
         }
 
     def _calculate_daily_change_stats(
-        self, 
-        history_df: pd.DataFrame
+        self, history_df: pd.DataFrame
     ) -> Dict[str, float]:
         """Calculate average daily change statistics.
-        
+
         Args:
             history_df: DataFrame with 'long_rate' and 'short_rate' columns
-            
+
         Returns:
             Dictionary with daily change statistics
         """
@@ -192,14 +189,18 @@ class Presenter:
 
         self._queue_status(f"Loading history for {instrument_name}...")
         history_df = self.model.get_instrument_history(instrument_name)
-        
+
         if history_df.empty:
             self._queue_error(f"No history found for {instrument_name}")
             return
 
         # Convert data to numeric before calculating stats
-        history_df["long_rate"] = pd.to_numeric(history_df["long_rate"], errors="coerce")
-        history_df["short_rate"] = pd.to_numeric(history_df["short_rate"], errors="coerce")
+        history_df["long_rate"] = pd.to_numeric(
+            history_df["long_rate"], errors="coerce"
+        )
+        history_df["short_rate"] = pd.to_numeric(
+            history_df["short_rate"], errors="coerce"
+        )
 
         # Calculate statistics
         stats = {}
@@ -207,14 +208,16 @@ class Presenter:
         stats.update(self._calculate_rate_statistics(history_df["short_rate"], "Short"))
         stats.update(self._calculate_daily_change_stats(history_df))
 
-        self.ui_update_queue.put({
-            "type": "show_history_window",
-            "payload": {
-                "instrument_name": instrument_name,
-                "history_df": history_df,
-                "stats": stats,
-            },
-        })
+        self.ui_update_queue.put(
+            {
+                "type": "show_history_window",
+                "payload": {
+                    "instrument_name": instrument_name,
+                    "history_df": history_df,
+                    "stats": stats,
+                },
+            }
+        )
         self._queue_status("History window displayed.")
 
     # --- Core Logic (UI-Thread Safe) ---
@@ -417,6 +420,32 @@ class Presenter:
             self._queue_hide_progress()
             self._queue_enable_buttons(True)
             return
+
+        if is_initial:
+            self._queue_status("No local data. Fetching from API...")
+
+        new_data = None
+        if source == "manual":
+            new_data = self.model.fetch_and_save_rates(save_to_db=False)
+            if new_data:
+                self._queue_status("Manual update successful (not saved to DB).")
+            else:
+                self._queue_error(
+                    "Manual update failed. Please try again or check API connectivity."
+                )
+            self._queue_hide_progress()
+            self._queue_enable_buttons(True)
+        elif source == "scheduled" or source == "initial":
+            new_data = self.model.fetch_and_save_rates(save_to_db=True)
+            if new_data:
+                self._queue_status("API fetch successful and saved to database.")
+            else:
+                self._queue_error("API fetch failed. Please check API connectivity.")
+            self._queue_hide_progress()
+            self._queue_enable_buttons(True)
+
+        if new_data:
+            self.ui_update_queue.put({"type": "data", "payload": new_data})
 
     # --- Scheduler Logic ---
 

@@ -77,66 +77,70 @@ class HistoryDialog(QDialog):
     def __init__(self, instrument_name, history_df, stats, parent=None):
         super().__init__(parent)
         self.setWindowTitle(f"History for {instrument_name}")
-        
+
         layout = QVBoxLayout()
-        
+
         # Stats Layout
         stats_layout = QHBoxLayout()
         long_stats_text, short_stats_text = self._format_stats_text(stats)
-        
+
         long_stats_label = QLabel(long_stats_text)
         short_stats_label = QLabel(short_stats_text)
-        
+
         stats_layout.addWidget(long_stats_label)
         stats_layout.addWidget(short_stats_label)
         layout.addLayout(stats_layout)
-        
+
         # Plot
         if not history_df.empty:
             plot_canvas = self._create_plot_canvas(history_df)
             layout.addWidget(plot_canvas)
-        
+
         self.setLayout(layout)
         self.resize(self.sizeHint())
 
     def _format_stats_text(self, stats: Dict[str, float]) -> tuple[str, str]:
         """Format statistics into long and short rate text sections.
-        
+
         Args:
             stats: Dictionary of statistics
-            
+
         Returns:
             Tuple of (long_stats_text, short_stats_text)
         """
         long_stats_text = "Long Rates:\n"
         short_stats_text = "Short Rates:\n"
-        
+
         for key, value in stats.items():
             formatted_line = f"{key}: {value * 100:.2f}%\n"
-            
+
             if "Long" in key:
                 long_stats_text += formatted_line
             elif "Short" in key:
                 short_stats_text += formatted_line
-        
+
         return long_stats_text, short_stats_text
 
     def _create_plot_canvas(self, history_df: pd.DataFrame) -> MplCanvas:
         """Create matplotlib canvas with rate history plot.
-        
+
         Args:
             history_df: DataFrame with historical rate data
-            
+
         Returns:
             Configured MplCanvas
         """
         sc = MplCanvas(self, width=5, height=4, dpi=100)
-        
+
         # Ensure numeric data
-        history_df["long_rate"] = pd.to_numeric(history_df["long_rate"], errors="coerce")
-        history_df["short_rate"] = pd.to_numeric(history_df["short_rate"], errors="coerce")
+        history_df["long_rate"] = pd.to_numeric(
+            history_df["long_rate"], errors="coerce"
+        )
+        history_df["short_rate"] = pd.to_numeric(
+            history_df["short_rate"], errors="coerce"
+        )
         dates = pd.to_datetime(history_df["date"])
-        
+
         # Plot both rates
         sc.axes.plot(
             dates,
@@ -150,7 +154,7 @@ class HistoryDialog(QDialog):
             label="Short Rate",
             color=THEME["plot_short_rate_color"],
         )
-        
+
         # Configure plot
         sc.axes.legend()
         sc.axes.set_xlabel("Date")
@@ -159,7 +163,7 @@ class HistoryDialog(QDialog):
         sc.axes.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m-%d"))
         sc.figure.autofmt_xdate()
         sc.figure.tight_layout()
-        
+
         return sc
 
 
@@ -431,10 +435,15 @@ class View(QMainWindow):
 
         self.table.setSortingEnabled(False)
         self.table.setRowCount(len(data))
-        
+
         # Define which columns are numeric
-        NUMERIC_COLUMNS = {4, 5, 6, 7}  # Long Rate, Short Rate, Long Charge, Short Charge
-        
+        NUMERIC_COLUMNS = {
+            4,
+            5,
+            6,
+            7,
+        }  # Long Rate, Short Rate, Long Charge, Short Charge
+
         for row_idx, row_data in enumerate(data):
             for col_idx, cell_data in enumerate(row_data):
                 is_numeric = col_idx in NUMERIC_COLUMNS
@@ -442,7 +451,7 @@ class View(QMainWindow):
                 self.table.setItem(row_idx, col_idx, item)
 
         self.table.setSortingEnabled(True)
-        
+
         # Restore previous sort order
         if current_sort_column != -1:
             self.table.sortItems(current_sort_column, current_sort_order)
@@ -637,7 +646,7 @@ class View(QMainWindow):
 
     def _parse_numeric_value(self, cell_data: Any) -> tuple[Optional[float], str]:
         """Parse cell data into numeric value and display string.
-        
+
         Returns:
             Tuple of (numeric_value or None, display_string)
         """
@@ -648,51 +657,51 @@ class View(QMainWindow):
         except (ValueError, AttributeError):
             return None, display_str
 
-    def _apply_value_color(self, item: QTableWidgetItem, numeric_value: Optional[float]) -> None:
+    def _apply_value_color(
+        self, item: QTableWidgetItem, numeric_value: Optional[float]
+    ) -> None:
         """Apply color to table item based on numeric value.
-        
+
         Args:
             item: The table widget item to color
             numeric_value: The numeric value (positive=green, negative=red, None=default)
         """
         if numeric_value is None:
             return
-        
+
         if numeric_value > 0:
             item.setForeground(QBrush(QColor(THEME["positive"])))
         elif numeric_value < 0:
             item.setForeground(QBrush(QColor(THEME["negative"])))
 
     def _create_table_item(
-        self, 
-        cell_data: Any, 
-        is_numeric_column: bool = False
+        self, cell_data: Any, is_numeric_column: bool = False
     ) -> QTableWidgetItem:
         """Create a table item with appropriate formatting.
-        
+
         Args:
             cell_data: The data to display
             is_numeric_column: Whether this column contains numeric data
-            
+
         Returns:
             Configured QTableWidgetItem
         """
         if is_numeric_column:
             item = NumericTableWidgetItem()
             numeric_value, display_str = self._parse_numeric_value(cell_data)
-            
+
             if numeric_value is not None:
                 item.setData(Qt.ItemDataRole.UserRole, numeric_value)
             else:
                 item.setData(Qt.ItemDataRole.UserRole, display_str)
-            
+
             item.setData(Qt.ItemDataRole.DisplayRole, display_str)
             self._apply_value_color(item, numeric_value)
         else:
-            item = QTableWidgetItem()
+            item = NumericTableWidgetItem()
             item.setData(Qt.ItemDataRole.UserRole, str(cell_data))
             item.setData(Qt.ItemDataRole.DisplayRole, str(cell_data))
-        
+
         return item
 
     def closeEvent(self, event):

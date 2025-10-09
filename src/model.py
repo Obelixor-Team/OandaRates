@@ -66,31 +66,35 @@ class Model:
 
     def _query_all_rates_ordered(self, ascending: bool = True) -> list[Dict[str, Any]]:
         """Query all rates ordered by date, returning their date and raw data.
-        
+
         Args:
             ascending: If True, order ascending; else descending
-            
+
         Returns:
             List of dictionaries, each with 'date' and 'raw_data'
         """
         with self.get_session() as session:
             order = Rate.date.asc() if ascending else Rate.date.desc()
             rates = session.query(Rate).order_by(order).all()
-            return [{"date": rate.date, "raw_data": rate.raw_data} for rate in rates]
+            # Extract data INSIDE the session context
+            result = [
+                {"date": str(rate.date), "raw_data": str(rate.raw_data)}
+                for rate in rates
+            ]
+            return result
 
     def _query_latest_rate(self) -> Optional[Dict[str, Any]]:
         """Query the most recent rate entry and return its raw data and date.
-        
+
         Returns:
             Dictionary with 'date' and 'raw_data' or None
         """
         with self.get_session() as session:
             rate = session.query(Rate).order_by(Rate.date.desc()).first()
             if rate:
-                return {"date": rate.date, "raw_data": rate.raw_data}
+                # Extract data INSIDE the session context
+                return {"date": str(rate.date), "raw_data": str(rate.raw_data)}
             return None
-
-
 
     def categorize_instrument(self, instrument: str) -> str:
         """Categorizes an instrument into a specific group based on its name.
@@ -252,8 +256,8 @@ class Model:
 
     def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
         """Load the most recent financing rates from the database."""
-        rate_data = self._query_latest_rate() # This now returns a dict or None
-        
+        rate_data = self._query_latest_rate()  # This now returns a dict or None
+
         if rate_data:
             date = rate_data["date"]
             raw_data_str = rate_data["raw_data"]
@@ -263,15 +267,17 @@ class Model:
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON for rate on {date}: {e}")
                 return None, None
-        
+
         return None, None
 
     @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument."""
         history = []
-        rates_data = self._query_all_rates_ordered(ascending=True) # This now returns list of dicts
-        
+        rates_data = self._query_all_rates_ordered(
+            ascending=True
+        )  # This now returns list of dicts
+
         for rate_entry_data in rates_data:
             date = rate_entry_data["date"]
             raw_data_str = rate_entry_data["raw_data"]
@@ -280,13 +286,15 @@ class Model:
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON for rate on {date}: {e}")
                 continue
-            
+
             for instrument_data in data.get("financingRates", []):
                 if instrument_data.get("instrument") == instrument_name:
-                    history.append({
-                        "date": date,
-                        "long_rate": instrument_data.get("longRate"),
-                        "short_rate": instrument_data.get("shortRate"),
-                    })
-        
+                    history.append(
+                        {
+                            "date": date,
+                            "long_rate": instrument_data.get("longRate"),
+                            "short_rate": instrument_data.get("shortRate"),
+                        }
+                    )
+
         return pd.DataFrame(history)
