@@ -1,139 +1,163 @@
-# OANDA Financing Rates Terminal
+# OANDA Financing Terminal
 
-A desktop application built with Python and PyQt6 to fetch, store, and display OANDA financing rates. This tool provides a clear, interactive interface to monitor financing rates, filter instruments by category or text, and view historical rate data with statistical analysis.
+The OANDA Financing Terminal is a Python-based desktop application for retrieving, displaying, and analyzing financing rates from the OANDA API. Built with PyQt6, SQLAlchemy, and pandas, it provides a user-friendly interface to view real-time and historical rates, filter by instrument or category, and visualize trends.
 
 ## Features
+- Fetches financing rates from the OANDA API and stores them in a SQLite database.
+- Displays rates in a sortable table with filtering by instrument or category.
+- Shows historical rate trends in a dialog with statistical summaries.
+- Supports cancellation of long-running API requests.
+- Configurable themes, logging, and API settings via `config.yaml`.
 
-*   **Real-time Data Fetching:** Fetches the latest financing rates from the OANDA API.
-*   **Local Data Storage:** Stores historical rate data in a SQLite database for persistent access.
-*   **Interactive GUI:** A modern, terminal-themed graphical user interface built with PyQt6.
-*   **Filtering & Categorization:** Filter instruments by text search or pre-defined categories (Forex, Indices, Commodities, Metals, CFDs, Bonds, Other).
-*   **Automated Updates:** Automatically updates data daily at 10:30 PM GMT (market close) and saves to the database.
-*   **Manual Updates:** Users can manually fetch and display the latest rates, but these are *not* saved to the database to preserve the integrity of settled rates.
-*   **Sortable Columns:** Click on column headers to sort data in ascending or descending order.
-*   **Color-coded Rates & Charges:** Long/Short Rate and Charge columns are color-coded (green for positive, red for negative) for quick visual analysis.
-*   **Enhanced Historical Statistics:** Double-click an instrument to view a line plot of its historical rates, along with comprehensive statistics including Mean, Median, Standard Deviation, Min/Max, and Average Daily Change for both long and short rates.
-*   **Window Persistence:** The application remembers and restores the main window's size and position upon reopening.
+## Prerequisites
+- Python 3.8 or higher
+- An OANDA API key (obtain from [OANDA Labs](https://labs.oanda.com/))
+- A compatible operating system (Windows, macOS, Linux)
 
-## Tech Stack
+## Installation
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/your-repo/oanda-financing-terminal.git
+   cd oanda-financing-terminal
+   ```
 
-*   **Python 3.11+**
-*   **PyQt6:** For the graphical user interface.
-*   **SQLAlchemy:** For Object Relational Mapping (ORM) with the SQLite database.
-*   **Requests:** For making HTTP requests to the OANDA API.
-*   **Pandas:** For data manipulation and statistical analysis.
-*   **Matplotlib:** For plotting historical data.
-*   **Schedule:** For scheduling automated data updates.
-*   **Bandit:** Security linter.
-*   **Radon:** Code complexity analysis.
+2. **Install Dependencies**:
+   Install required packages using `pip`:
+   ```bash
+   pip install -r requirements.txt
+   ```
+   The `requirements.txt` includes:
+   - `requests`
+   - `SQLAlchemy`
+   - `PyQt6`
+   - `matplotlib`
+   - `pandas`
+   - `pytz`
+   - `apscheduler`
 
-## Setup and Running
-
-Follow these steps to set up and run the application:
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository_url>
-cd OandaRates
-```
-
-### 2. Set up Python Environment (using pyenv)
-
-Ensure you have `pyenv` installed and set your local Python version to 3.11.13 (or a compatible version).
-
-```bash
-pyenv install 3.11.13 # If you don't have it already
-pyenv local 3.11.13
-```
-
-### 3. Create and Activate Virtual Environment
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 4. Install Dependencies
-
-Install the project's core dependencies:
-
-```bash
-pip install .
-```
-
-For development, install optional dependencies including code quality tools:
-
-```bash
-pip install .[dev]
-```
-
-### 5. Run the Application
-
-```bash
-make run
-```
-
-The application window will appear, displaying the OANDA financing rates. Data will automatically update daily at 10:30 PM GMT.
+3. **Set Environment Variables**:
+   Set the `OANDA_API_KEY` environment variable for secure API access:
+   - On Windows:
+     ```bash
+     set OANDA_API_KEY=your_api_key_here
+     ```
+   - On macOS/Linux:
+     ```bash
+     export OANDA_API_KEY=your_api_key_here
+     ```
 
 ## Configuration
+The application uses a `config.yaml` file for customization. If not present, it defaults to built-in settings. Create a `config.yaml` in the project root with the following structure:
 
-The application's behavior can be customized through the `config.yaml` file.
+```yaml
+api:
+  url: "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1"
+  timeout: 10
+database:
+  file: "oanda_rates.db"
+logging:
+  level: "INFO"
+  file_path: "oanda_terminal.log"
+theme:
+  background: "#0a0a12"
+  text: "#e0e0e0"
+  positive: "#00ff9d"
+  negative: "#ff5555"
+  plot_background: "#121220"
+  table_background: "#1a1a2e"
+  table_gridline: "#2a2a3e"
+  header_background: "#121220"
+  header_text: "#00ff9d"
+  selected_background: "#0095ff"
+  selected_text: "#ffffff"
+  button_background: "#0095ff"
+  button_hover: "#0077cc"
+  button_text: "#ffffff"
+  input_background: "#1a1a2e"
+  input_border: "#2a2a3e"
+  status_text: "#a0a0b0"
+  plot_long_rate_color: "#00ff9d"
+  plot_short_rate_color: "#ff5555"
+ui:
+  timer_interval: 16
+categories:
+  currencies: ["usd", "eur", "jpy", "gbp", "aud", "cad", "chf", "nzd", "sgd", "hkd", "nok", "sek", "dkk", "mxn", "zar", "try", "cnh", "pln", "czk", "huf"]
+  metals: ["xau", "xag", "xpd", "xpt"]
+  commodities: ["wtico_usd", "brent_crude_oil", "nat_gas_usd", "corn_usd", "wheat_usd", "soybn_usd", "sugar_usd", "cocoa_usd", "coffee_usd"]
+  indices: ["us30_usd", "us_30_usd", "spx500_usd", "us_spx_500", "nas100_usd", "us_nas_100", "us2000_usd", "us_2000", "uk100_gbp", "uk_100", "de40_eur", "de_30_eur", "de_40_eur", "eu50_eur", "eu_50_eur", "fr40_eur", "fr_40", "jp225_usd", "jp_225", "au200_aud", "au_200", "hk33_hkd", "hk_hsi", "cn50_usd", "cn_50", "sg30_sgd", "sg_30"]
+  bonds: ["de_10yr_bund", "us_2yr_tnote", "us_5yr_tnote", "us_10yr_tnote", "usb02y_usd", "usb05y_usd", "de10yb_eur"]
+  currency_suffixes:
+    USD: "USD"
+    EUR: "EUR"
+    GBP: "GBP"
+    JPY: "JPY"
+    AUD: "AUD"
+    CAD: "CAD"
+    CHF: "CHF"
+    NZD: "NZD"
+    SGD: "SGD"
+    HKD: "HKD"
+    NOK: "NOK"
+    SEK: "SEK"
+    DKK: "DKK"
+    MXN: "MXN"
+    ZAR: "ZAR"
+    TRY: "TRY"
+    CNH: "CNH"
+    PLN: "PLN"
+    CZK: "CZK"
+    HUF: "HUF"
+```
 
-*   **`api`**: Configuration for the OANDA API.
-    *   `url`: The API endpoint for fetching financing rates.
-    *   `headers`: HTTP headers to be sent with the API request. The `Authorization` header is read from the `OANDA_API_KEY` environment variable for security. The default `User-Agent` mimics a browser.
-    *   `timeout`: The timeout in seconds for the API request.
-*   **`database`**: Configuration for the local database.
-    *   `file`: The name of the SQLite database file.
-*   **`categories`**: Lists of keywords used to categorize instruments.
-    *   `currencies`, `metals`, `commodities`, `indices`, `bonds`: These lists contain keywords that are used to identify the category of an instrument based on its name.
-    *   `currency_suffixes`: A mapping of instrument name suffixes to their corresponding currency.
-*   `ui`: Configuration for the user interface.
-    *   `timer_interval`: The interval in milliseconds for the UI update timer.
-
-*   **`logging`**: Configuration for application logging.
-    *   `level`: The minimum logging level (e.g., `INFO`, `DEBUG`, `WARNING`, `ERROR`).
-    *   `file_path`: The path to the log file. Defaults to `oanda_terminal.log` in the project root.
-
-*   **`theme`**: Customization options for the application\'s visual theme.
-    *   Various keys like `background`, `text`, `positive`, `negative`, `etc.`: These define the colors for different UI elements. You can adjust these hexadecimal color codes to match your preferences.
-
-    Example `config.yaml` snippet for theme and logging:
-    ```yaml
-    logging:
-      level: DEBUG
-      file_path: /var/log/oanda_app.log
-    theme:
-      background: "#1e1e1e"
-      text: "#d4d4d4"
-      positive: "#60a060"
-      negative: "#e06060"
-    ```
+- **Key Fields**:
+  - `api.url`: OANDA API endpoint for financing rates.
+  - `logging.level`: Log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`).
+  - `theme.*`: UI colors for customization.
+  - `categories.*`: Instrument categorization rules.
 
 ## Usage
+1. **Run the Application**:
+   ```bash
+   python src/main.py
+   ```
+2. **Interact with the UI**:
+   - **Filter**: Enter an instrument name (e.g., "EUR_USD") in the filter input.
+   - **Category**: Select a category (e.g., "Forex", "Metals") from the dropdown.
+   - **Manual Update**: Click "Manual Update" to fetch new rates from the API.
+   - **Cancel Update**: Click "Cancel Update" to stop an ongoing fetch.
+   - **Clear Filter**: Reset filters and category selection.
+   - **View History**: Double-click a table row to see historical rates and statistics in a dialog.
+3. **View Logs**:
+   Logs are written to the file specified in `logging.file_path` (default: `oanda_terminal.log`).
 
-*   **Filtering:**
-    *   **By Text:** Type in the "Filter instruments..." input box to filter the table by instrument name.
-    *   **By Category:** Select a category from the dropdown menu to show only instruments from that category.
-*   **Clear Filter:** Click the "Clear Filter" button to reset both the text and category filters.
-*   **Manual Update:** Click the "Manual Update" button to fetch the latest rates from the API. Note that this will not save the data to the database.
-*   **View History:** Double-click on any instrument in the table to open a new window showing a plot of its historical rates and related statistics.
+## Development
+- **Run Tests**:
+  Install development dependencies:
+  ```bash
+  pip install -r requirements.txt --extra-index-url [dev]
+  ```
+  Run tests with `pytest`:
+  ```bash
+  pytest tests/test_oanda_terminal.py
+  ```
+- **Code Style**:
+  Use `ruff` for linting and `black` for formatting:
+  ```bash
+  ruff check .
+  black .
+  ```
+- **Type Checking**:
+  Run `mypy` for static type checking:
+  ```bash
+  mypy src
+  ```
 
-## Code Quality
+## Contributing
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/your-feature`).
+3. Commit changes (`git commit -m "Add your feature"`).
+4. Push to the branch (`git push origin feature/your-feature`).
+5. Open a pull request.
 
-This project uses several tools to maintain code quality. A `Makefile` is provided to automate running these checks.
-
-### Available Commands:
-
-*   **`make all`**: Runs all code quality checks and tests.
-*   **`make check`**: Runs all code quality checks.
-*   **`make format`**: Runs `black` to format the code.
-*   **`make lint`**: Runs `ruff` to lint the code.
-*   **`make typecheck`**: Runs `mypy` to type check the code.
-*   **`make security`**: Runs `bandit` to check for security issues.
-*   **`make complexity`**: Runs `radon` to check code complexity.
-*   **`make test`**: Runs `pytest` to execute tests.
-*   **`make clean`**: Cleans up generated files (e.g., `__pycache__`, `.mypy_cache`, build artifacts).
-*   **`make run`**: Runs the application.
-*   **`make help`**: Displays this help message.
+## License
+This project is licensed under the MIT License. See `LICENSE` for details.

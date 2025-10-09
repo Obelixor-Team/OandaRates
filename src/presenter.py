@@ -40,6 +40,17 @@ class Presenter:
         self._is_cancellation_requested: bool = False
 
     def shutdown(self) -> None:
+        """Shuts down the scheduler and thread pool executor gracefully.
+
+        This method is called when the application is closing to ensure that
+        all background tasks are properly terminated, preventing resource leaks.
+
+        Example:
+            >>> # Assuming 'presenter' is an instance of Presenter
+            >>> presenter.shutdown()
+            # Expected: Scheduler and ThreadPoolExecutor are shut down,
+            # and corresponding log messages are generated.
+        """
         if self.scheduler:
             self.scheduler.shutdown(wait=False)
             logger.info("Scheduler shut down.")
@@ -176,7 +187,31 @@ class Presenter:
     # --- Core Logic (UI-Thread Safe) ---
 
     def _process_and_cache_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process and cache the raw data."""
+        """Process and cache the raw data.
+
+        This method takes raw financing rate data, calculates percentage values
+        for long and short rates, and prepares it for display. It also serves
+        as a point for caching the processed data within the presenter.
+
+        Args:
+            data: A dictionary containing the raw financing rates, typically
+                  fetched from the OANDA API.
+
+        Returns:
+            Dict[str, Any]: The processed data with 'longRate_pct' and
+                            'shortRate_pct' added to each financing rate entry.
+
+        Example:
+            >>> presenter = Presenter(model, view) # Assume model and view are initialized
+            >>> raw_data = {
+            ...     "financingRates": [
+            ...         {"instrument": "EUR_USD", "longRate": "0.0083", "shortRate": "-0.0133"}
+            ...     ]
+            ... }
+            >>> processed_data = presenter._process_and_cache_data(raw_data)
+            >>> print(processed_data['financingRates'][0]['longRate_pct'])
+            0.83
+        """
         if "financingRates" in data:
             for rate in data["financingRates"]:
                 rate["longRate_pct"] = float(rate.get("longRate", 0.0)) * 100
@@ -240,7 +275,21 @@ class Presenter:
             pass
 
     def _update_display(self):
-        """Filter the current data and update the view's table."""
+        """Filter the current data and update the view's table.
+
+        This method applies the current filter text and category selection
+        to the raw data and then updates the main table in the view with
+        the filtered results. It also updates the status bar with the
+        number of instruments displayed.
+
+        Example:
+            >>> # Assuming 'presenter' has loaded some data and has a view attached
+            >>> presenter.filter_text = "eur"
+            >>> presenter.selected_category = "Forex"
+            >>> presenter._update_display()
+            # Expected: The view's table is updated with filtered data,
+            # and the status bar reflects the update.
+        """
 
         if not self.raw_data or "financingRates" not in self.raw_data:
             self.view.update_table([])
@@ -279,7 +328,21 @@ class Presenter:
     # --- Background Jobs (Worker Threads) ---
 
     def _initial_load_job(self):
-        """Load initial data from DB or API."""
+        """Load initial data from DB or API.
+
+        This method is executed in a background thread upon application start.
+        It first attempts to load the latest rates from the local database.
+        If no data is found in the database, it then triggers a fetch from the
+        OANDA API and saves it to the database.
+
+        Example:
+            >>> # This method is typically called by on_app_start:
+            >>> # presenter.executor.submit(presenter._initial_load_job)
+            >>> # Direct call for testing (requires mocking queue and model interactions):
+            >>> # presenter._initial_load_job()
+            # Expected: UI is updated with progress, status messages, and eventually
+            # the main table is populated with data from DB or API.
+        """
         self.ui_update_queue.put({"type": "show_progress", "payload": {}})
         self.ui_update_queue.put(
             {
@@ -301,7 +364,26 @@ class Presenter:
             self._fetch_job(source="initial", is_initial=True)
 
     def _fetch_job(self, source: str = "manual", is_initial: bool = False):
-        """Fetch new data from the API."""
+        """Fetch new data from the API.
+
+        This method is responsible for making the API call to OANDA to get
+        the latest financing rates. It handles different sources (manual,
+        scheduled, initial load) and updates the UI with status messages
+        and progress indicators. It also handles cancellation requests.
+
+        Args:
+            source: The source of the fetch request (e.g., "manual", "scheduled", "initial").
+            is_initial: A boolean indicating if this is part of the initial data load.
+
+        Example:
+            >>> # Manual fetch:
+            >>> # presenter.executor.submit(presenter._fetch_job, source="manual")
+            >>> # Scheduled fetch:
+            >>> # presenter.executor.submit(presenter._fetch_job, source="scheduled")
+            >>> # Initial fetch (if no DB data):
+            >>> # presenter.executor.submit(presenter._fetch_job, source="initial", is_initial=True)
+            # Expected: UI is updated with fetch status, progress, and new data if successful.
+        """
         if self._is_cancellation_requested:
             self.ui_update_queue.put(
                 {

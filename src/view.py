@@ -148,6 +148,20 @@ class View(QMainWindow):
     """Main application window for displaying OANDA financing rates."""
 
     def __init__(self, presenter: Optional["Presenter"] = None) -> None:
+        """Initializes the main application window.
+
+        Sets up the window title, applies the stylesheet, sets up the UI
+        elements, and loads/saves window geometry settings.
+
+        Args:
+            presenter: An optional Presenter instance to connect UI events to.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view.setWindowTitle("Test Window")
+            >>> assert view.windowTitle() == "Test Window"
+        """
         super().__init__()
         self._presenter: Optional["Presenter"] = presenter
         self._timer: Optional[QTimer] = None
@@ -164,9 +178,44 @@ class View(QMainWindow):
             self.resize(self.sizeHint())  # Use sizeHint for default size
 
     def set_timer(self, timer: QTimer) -> None:
+        """Sets the QTimer instance for the view.
+
+        This timer is typically used to periodically process UI updates from
+        the presenter's queue.
+
+        Args:
+            timer: The QTimer instance to be set.
+
+        Example:
+            >>> from PyQt6.QtCore import QTimer
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> timer = QTimer()
+            >>> view.set_timer(timer)
+            >>> assert view._timer is timer
+        """
         self._timer = timer
 
     def set_presenter(self, presenter: "Presenter") -> None:
+        """Sets the presenter for the view and connects UI signals to presenter slots.
+
+        This method establishes the communication link between the view's UI
+        elements and the presenter's logic, ensuring that user interactions
+        trigger the appropriate actions in the presenter.
+
+        Args:
+            presenter: The Presenter instance to associate with this view.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View()
+            >>> mock_presenter = MagicMock()
+            >>> view.set_presenter(mock_presenter)
+            >>> assert view._presenter is mock_presenter
+            >>> # Verify a connection (conceptual check, actual assertion is complex)
+            >>> view.filter_input.textChanged.emit("test")
+            >>> mock_presenter.on_filter_text_changed.assert_called_with("test")
+        """
         self._presenter = presenter
         # Connect signals to presenter methods after presenter is set
         self.filter_input.textChanged.connect(self._presenter.on_filter_text_changed)
@@ -180,10 +229,45 @@ class View(QMainWindow):
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
     def set_update_buttons_enabled(self, enabled: bool):
+        """Enables or disables the update and cancel buttons.
+
+        This method is used to control the interactivity of the update and
+        cancel buttons, typically to prevent multiple simultaneous updates
+        or to indicate an ongoing operation.
+
+        Args:
+            enabled: A boolean value; True to enable, False to disable.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui() # Ensure buttons are initialized
+            >>> view.set_update_buttons_enabled(False)
+            >>> assert not view.update_btn.isEnabled()
+            >>> assert view.cancel_btn.isEnabled()
+            >>> view.set_update_buttons_enabled(True)
+            >>> assert view.update_btn.isEnabled()
+            >>> assert not view.cancel_btn.isEnabled()
+        """
         self.update_btn.setEnabled(enabled)
         self.cancel_btn.setEnabled(not enabled)
 
     def _setup_ui(self):
+        """Sets up the user interface elements of the main window.
+
+        This private method initializes and arranges all widgets, including
+        input fields, buttons, tables, and status bar components. It also
+        configures their properties and accessibility attributes.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> # After setup, you can assert properties of created widgets
+            >>> assert isinstance(view.filter_input, QLineEdit)
+            >>> assert view.table.columnCount() == 9
+            >>> assert view.status_label.text() == "TERMINAL READY"
+        """
         # --- Central Widget and Layouts ---
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -295,6 +379,27 @@ class View(QMainWindow):
         self.setTabOrder(self.cancel_btn, self.table)
 
     def _on_table_double_click(self, item):
+        """Handles the double-click event on a table item.
+
+        When a user double-clicks on a row in the instrument table, this method
+        extracts the instrument name from the clicked row and delegates the
+        action to the presenter to show the historical data.
+
+        Args:
+            item: The QTableWidgetItem that was double-clicked.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> from PyQt6.QtWidgets import QTableWidgetItem
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.table.setRowCount(1)
+            >>> view.table.setItem(0, 0, QTableWidgetItem("EUR_USD"))
+            >>> mock_presenter = MagicMock()
+            >>> view.set_presenter(mock_presenter)
+            >>> view._on_table_double_click(view.table.item(0, 0))
+            >>> mock_presenter.on_instrument_double_clicked.assert_called_once_with("EUR_USD")
+        """
         instrument_name = self.table.item(item.row(), 0).text()
         self._presenter.on_instrument_double_clicked(instrument_name)
 
@@ -419,29 +524,115 @@ class View(QMainWindow):
         dialog.exec()
 
     def set_status(self, text, is_error=False):
-        """Set the status bar message."""
+        """Set the status bar message.
+
+        Updates the text in the status bar and applies a color based on whether
+        the message is an error or a regular status update.
+
+        Args:
+            text: The message string to display in the status bar.
+            is_error: A boolean indicating if the message is an error (True) or not (False).
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.set_status("Operation successful", is_error=False)
+            >>> assert view.status_label.text() == "Operation successful"
+            >>> # assert "color: #00FF00" in view.status_label.styleSheet() # Assuming green for positive
+            >>> view.set_status("Operation failed", is_error=True)
+            >>> assert view.status_label.text() == "Operation failed"
+            >>> # assert "color: #FF0000" in view.status_label.styleSheet() # Assuming red for negative
+        """
         color = THEME["negative"] if is_error else THEME["positive"]
         self.status_label.setText(text)
         self.status_label.setStyleSheet(f"color: {color};")
 
     def set_update_time(self, text):
-        """Set the last update time in the status bar."""
+        """Set the last update time in the status bar.
+
+        Updates the label in the status bar that displays the timestamp of
+        the last data update.
+
+        Args:
+            text: The time string to display (e.g., "2023-10-27 10:30:00").
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.set_update_time("2023-10-27 10:30:00")
+            >>> assert view.update_time_label.text() == "LAST UPDATE: 2023-10-27 10:30:00"
+        """
         self.update_time_label.setText(f"LAST UPDATE: {text}")
 
     def clear_inputs(self):
-        """Clear filter and category input fields."""
+        """Clear filter and category input fields.
+
+        Resets the text in the instrument filter input field and sets the
+        category dropdown to its default "All" selection.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.filter_input.setText("some text")
+            >>> view.category_combo.setCurrentIndex(1) # Select a category other than All
+            >>> view.clear_inputs()
+            >>> assert view.filter_input.text() == ""
+            >>> assert view.category_combo.currentIndex() == 0 # "All" is usually the first item
+        """
         self.filter_input.setText("")
         self.category_combo.setCurrentIndex(0)
 
     def show_progress_bar(self):
-        """Show the progress bar."""
+        """Show the progress bar.
+
+        Makes the indeterminate progress bar visible in the status bar,
+        typically indicating an ongoing background operation.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.show_progress_bar()
+            >>> assert view.progress_bar.isVisible()
+        """
         self.progress_bar.setVisible(True)
 
     def hide_progress_bar(self):
-        """Hide the progress bar."""
+        """Hide the progress bar.
+
+        Makes the indeterminate progress bar invisible in the status bar,
+        typically indicating the completion of a background operation.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> view.show_progress_bar()
+            >>> assert view.progress_bar.isVisible()
+            >>> view.hide_progress_bar()
+            >>> assert not view.progress_bar.isVisible()
+        """
         self.progress_bar.setVisible(False)
 
     def _apply_stylesheet(self):
+        """Applies a CSS-like stylesheet to the application based on the current theme.
+
+        This private method constructs a Qt Stylesheet string using color values
+        from the `THEME` dictionary and applies it to the main window and its
+        widgets, ensuring a consistent look and feel.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> view = View(MagicMock())
+            >>> view._apply_stylesheet()
+            >>> # Assertions here would be complex as it involves checking the applied stylesheet
+            >>> # However, you can conceptually verify that the method runs without error
+            >>> # and that the styleSheet property of the QMainWindow is not empty.
+            >>> assert view.styleSheet() != ""
+        """
         qss = f"""
             QMainWindow, QDialog {{
                 background-color: {THEME["background"]};
@@ -493,6 +684,27 @@ class View(QMainWindow):
         self.setStyleSheet(qss)
 
     def closeEvent(self, event):
+        """Handles the close event for the main window.
+
+        This method is overridden to save the window's geometry before closing
+        and to stop any running QTimer to ensure a clean shutdown.
+
+        Args:
+            event: The QCloseEvent object.
+
+        Example:
+            >>> from unittest.mock import MagicMock
+            >>> from PyQt6.QtGui import QCloseEvent
+            >>> view = View(MagicMock())
+            >>> view._setup_ui()
+            >>> mock_timer = MagicMock()
+            >>> view.set_timer(mock_timer)
+            >>> event = QCloseEvent()
+            >>> view.closeEvent(event)
+            >>> view.settings.setValue.assert_called_with("geometry", view.saveGeometry())
+            >>> mock_timer.stop.assert_called_once()
+            >>> assert event.isAccepted()
+        """
         self.settings.setValue("geometry", self.saveGeometry())
         if self._timer:
             self._timer.stop()

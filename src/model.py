@@ -53,6 +53,15 @@ class Model:
 
         Returns:
             str: The category of the instrument (e.g., 'Forex', 'Metals').
+
+        Example:
+            >>> model = Model()
+            >>> model.categorize_instrument("EUR_USD")
+            'Forex'
+            >>> model.categorize_instrument("XAU_USD")
+            'Metals'
+            >>> model.categorize_instrument("DE30_EUR")
+            'Indices'
         """
         instrument_lower = instrument.lower().replace("/", "_")
 
@@ -89,7 +98,19 @@ class Model:
         return "Other"
 
     def _infer_currency(self, instrument_name: str, api_currency: str) -> str:
-        """Infers the currency from the instrument name or falls back to API provided currency."""
+        """Infers the currency from the instrument name or falls back to API provided currency.
+        Returns:
+            str: The inferred currency.
+
+        Example:
+            >>> model = Model()
+            >>> model._infer_currency("EUR/USD", "USD")
+            'USD'
+            >>> model._infer_currency("XAU_USD", "USD") # Assuming XAU_USD is configured to map to USD
+            'USD'
+            >>> model._infer_currency("DE30_EUR", "EUR")
+            'EUR'
+        """ ""
         if "/" in instrument_name:
             return instrument_name.split("/")[1]
 
@@ -181,6 +202,15 @@ class Model:
 
         Raises:
             sqlalchemy.exc.SQLAlchemyError: If database query fails.
+
+        Example:
+            >>> model = Model()
+            >>> # Assuming there is some data in the database
+            >>> date, rates_data = model.get_latest_rates()
+            >>> if date and rates_data:
+            ...     print(f"Latest rates on {date}: {rates_data['financingRates'][0]['instrument']}")
+            # Output might look like:
+            # Latest rates on 2023-10-27: EUR_USD
         """
         rate = self.session.query(Rate).order_by(Rate.date.desc()).first()
         if rate:
