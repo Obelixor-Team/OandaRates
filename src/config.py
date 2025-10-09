@@ -6,8 +6,13 @@ import logging.config
 
 def setup_logging():
     """Set up logging for the application."""
+    log_level_str = config["logging"]["level"].upper()
+    log_level = getattr(
+        logging, log_level_str, logging.INFO
+    )  # Default to INFO if not found
+
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         handlers=[
             logging.FileHandler(
@@ -148,17 +153,49 @@ DEFAULT_CONFIG = {
         "input_border": "#2a2a3e",
         "status_text": "#a0a0b0",
     },
+    "logging": {"level": "INFO"},
 }
 
 
+def _validate_config_types(config: Dict) -> None:
+    """Validate the types of critical configuration values."""
+    # Validate api.timeout
+    if not isinstance(config["api"]["timeout"], int):
+        raise TypeError("Config error: api.timeout must be an integer.")
+
+    # Validate theme colors
+    for key, value in config["theme"].items():
+        if not isinstance(value, str):
+            raise TypeError(f"Config error: theme.{key} must be a string.")
+
+    # Validate logging.level
+    if not isinstance(config["logging"]["level"], str):
+        raise TypeError("Config error: logging.level must be a string.")
+    valid_log_levels = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"]
+    if config["logging"]["level"].upper() not in valid_log_levels:
+        raise ValueError(
+            f"Config error: logging.level must be one of {valid_log_levels}."
+        )
+
+    # Validate ui.timer_interval
+    if not isinstance(config["ui"]["timer_interval"], int):
+        raise TypeError("Config error: ui.timer_interval must be an integer.")
+
+    if not isinstance(config["theme"]["plot_long_rate_color"], str):
+        raise TypeError("Config error: theme.plot_long_rate_color must be a string.")
+    if not isinstance(config["theme"]["plot_short_rate_color"], str):
+        raise TypeError("Config error: theme.plot_short_rate_color must be a string.")
+
+
 def validate_config(config: Dict) -> None:
-    """Validate the configuration file for required keys.
+    """Validate the configuration file for required keys and types.
 
     Args:
         config: The loaded configuration dictionary.
 
     Raises:
         ValueError: If a required key is missing.
+        TypeError: If a configuration value has an incorrect type.
     """
     required_keys = [
         "api.url",
@@ -189,11 +226,16 @@ def validate_config(config: Dict) -> None:
         "theme.input_background",
         "theme.input_border",
         "theme.status_text",
+        "theme.plot_long_rate_color",
+        "theme.plot_short_rate_color",
+        "logging.level",
     ]
     for key in required_keys:
         parent, child = key.split(".")
         if parent not in config or child not in config[parent]:
             raise ValueError(f'Missing required config key: "{key}" in config.yaml')
+
+    _validate_config_types(config)  # Call type validation
 
 
 def _deep_merge(base, new):

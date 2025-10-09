@@ -120,3 +120,5 @@ theme:
   input_background: "#1a1a2e"
   input_border: "#2a2a3e"
   status_text: "#a0a0b0"
+  plot_long_rate_color: "#00ff9d"
+  plot_short_rate_color: "#ff5555"

@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 from typing import Dict, Optional, Any
 import logging
+import functools
 
 import pandas as pd
 import requests
@@ -186,22 +187,45 @@ class Model:
             return str(rate.date), json.loads(rate.raw_data)
         return None, None
 
+    @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument.
 
+        This method queries the database for all historical rate entries and
+        filters them to extract the long and short rates for the specified
+        instrument. The results are returned as a pandas DataFrame.
+        The results are cached using `functools.lru_cache` for performance.
+
         Args:
-            instrument_name: The name of the instrument.
+            instrument_name: The name of the instrument (e.g., "EUR_USD").
 
         Returns:
-            pd.DataFrame: A DataFrame with the history.
+            pd.DataFrame: A DataFrame with columns "date", "long_rate", and "short_rate".
+            Returns an empty DataFrame if no history is found for the instrument.
 
         Raises:
             sqlalchemy.exc.SQLAlchemyError: If database query fails.
+
+        Example:
+            >>> model = Model()
+            >>> # Assuming some data is in the database for "EUR_USD"
+            >>> history_df = model.get_instrument_history("EUR_USD")
+            >>> if not history_df.empty:
+            ...     print(history_df.head())
+            # Output might look like:
+            #          date  long_rate  short_rate
+            # 0  2023-01-01       0.01       -0.02
+            # 1  2023-01-02      0.015      -0.025
         """
         history = []
         rates: list[Rate] = self.session.query(Rate).order_by(Rate.date.asc()).all()
         for rate_entry in rates:
-            data = json.loads(str(rate_entry.raw_data))
+            try:
+                data = json.loads(str(rate_entry.raw_data))
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON for rate on {rate_entry.date}: {e}")
+                continue  # Skip this entry and continue with the next
+
             for instrument_data in data.get("financingRates", []):
                 if instrument_data.get("instrument") == instrument_name:
                     history.append(

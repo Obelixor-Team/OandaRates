@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtCore import QSettings, Qt, QTimer
 
-from typing import TYPE_CHECKING, Optional, Dict
+from typing import TYPE_CHECKING, Optional, Dict, Any
 
 from .theme import THEME
 
@@ -118,8 +118,18 @@ class HistoryDialog(QDialog):
             )
             dates = pd.to_datetime(history_df["date"])
 
-            sc.axes.plot(dates, history_df["long_rate"], label="Long Rate")
-            sc.axes.plot(dates, history_df["short_rate"], label="Short Rate")
+            sc.axes.plot(
+                dates,
+                history_df["long_rate"],
+                label="Long Rate",
+                color=THEME["plot_long_rate_color"],
+            )
+            sc.axes.plot(
+                dates,
+                history_df["short_rate"],
+                label="Short Rate",
+                color=THEME["plot_short_rate_color"],
+            )
             sc.axes.legend()
             sc.axes.set_xlabel("Date")
             sc.axes.set_ylabel("Rate (%)")
@@ -165,7 +175,13 @@ class View(QMainWindow):
         )
         self.clear_btn.clicked.connect(self._presenter.on_clear_filter)
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
+        self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
+
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
+
+    def set_update_buttons_enabled(self, enabled: bool):
+        self.update_btn.setEnabled(enabled)
+        self.cancel_btn.setEnabled(not enabled)
 
     def _setup_ui(self):
         # --- Central Widget and Layouts ---
@@ -211,6 +227,13 @@ class View(QMainWindow):
         self.update_btn.setAccessibleDescription(
             "Manually fetches the latest financing rates from the OANDA API."
         )
+
+        self.cancel_btn = QPushButton("Cancel Update")
+        self.cancel_btn.setAccessibleName("Cancel Update Button")
+        self.cancel_btn.setAccessibleDescription(
+            "Cancels the ongoing manual update of financing rates."
+        )
+        self.cancel_btn.setEnabled(False)  # Initially disabled
 
         self.table = QTableWidget()
         self.table.setColumnCount(9)
@@ -258,6 +281,7 @@ class View(QMainWindow):
         control_layout.addWidget(self.category_combo)
         control_layout.addWidget(self.clear_btn)
         control_layout.addWidget(self.update_btn)
+        control_layout.addWidget(self.cancel_btn)
 
         main_layout.addLayout(control_layout)
         main_layout.addWidget(self.table)
@@ -266,8 +290,31 @@ class View(QMainWindow):
         instrument_name = self.table.item(item.row(), 0).text()
         self._presenter.on_instrument_double_clicked(instrument_name)
 
-    def update_table(self, data):
-        """Update the main table with new data."""
+    def update_table(self, data: list[list[Any]]):
+        """Update the main table with new data.
+
+        This method populates the QTableWidget with the provided data.
+        It handles numerical sorting for rate columns and applies color-coding
+        (green for positive, red for negative) to relevant cells.
+        The table's sort order is preserved after the update.
+
+        Args:
+            data: A list of lists, where each inner list represents a row
+                  and contains strings or numbers for each column.
+                  Example:
+                  [
+                      ["EUR/USD", "Forex", "USD", 1, "1.00%", "-2.00%", "", "", ""],
+                      ["XAU/USD", "Metals", "USD", 1, "5.00%", "-6.00%", "", "", ""],
+                  ]
+        Example:
+            >>> view = View()
+            >>> sample_data = [
+            ...     ["EUR/USD", "Forex", "USD", 1, "1.00%", "-2.00%", "", "", ""],
+            ...     ["XAU/USD", "Metals", "USD", 1, "5.00%", "-6.00%", "", "", ""],
+            ... ]
+            >>> view.update_table(sample_data)
+            # The table in the view would be updated with the provided data.
+        """
         # Store current sort order
         current_sort_column = self.table.horizontalHeader().sortIndicatorSection()
         current_sort_order = self.table.horizontalHeader().sortIndicatorOrder()
@@ -276,6 +323,7 @@ class View(QMainWindow):
         self.table.setRowCount(len(data))
         for row_idx, row_data in enumerate(data):
             for col_idx, cell_data in enumerate(row_data):
+                item: QTableWidgetItem
                 # Use NumericTableWidgetItem for numerical columns, QTableWidgetItem for others
                 if col_idx in [
                     4,

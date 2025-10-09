@@ -37,6 +37,7 @@ class Presenter:
         self.ui_update_queue: queue.Queue[UIUpdate] = queue.Queue()
         self.scheduler: Optional[BackgroundScheduler] = None
         self.executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent tasks
+        self._is_cancellation_requested: bool = False
 
     def shutdown(self) -> None:
         if self.scheduler:
@@ -54,11 +55,21 @@ class Presenter:
 
     def on_manual_update(self):
         """Handle the 'Manual Update' button click."""
+        self._is_cancellation_requested = False
+        self.view.set_update_buttons_enabled(False)
         self.ui_update_queue.put(
             {"type": "status", "payload": {"text": "Fetching new data from API..."}}
         )
         self.ui_update_queue.put({"type": "show_progress", "payload": {}})
         self.executor.submit(self._fetch_job, "manual")
+
+    def on_cancel_update(self):
+        """Handle the 'Cancel Update' button click."""
+        self._is_cancellation_requested = True
+        self.view.set_status(
+            "Cancellation requested. Waiting for current operation to finish..."
+        )
+        self.view.set_update_buttons_enabled(True)
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
@@ -268,6 +279,17 @@ class Presenter:
 
     def _fetch_job(self, source: str = "manual", is_initial: bool = False):
         """Fetch new data from the API."""
+        if self._is_cancellation_requested:
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": "Update cancelled.", "is_error": True},
+                }
+            )
+            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+            self.view.set_update_buttons_enabled(True)
+            return
+
         if is_initial:
             self.ui_update_queue.put(
                 {
@@ -299,7 +321,8 @@ class Presenter:
                         },
                     }
                 )
-                self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+            self.view.set_update_buttons_enabled(True)
         elif source == "scheduled" or source == "initial":
             new_data = self.model.fetch_and_save_rates(save_to_db=True)
             if new_data:
@@ -322,7 +345,8 @@ class Presenter:
                         },
                     }
                 )
-                self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+            self.view.set_update_buttons_enabled(True)
 
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})
