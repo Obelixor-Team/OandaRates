@@ -1,3 +1,4 @@
+from datetime import datetime
 import logging
 
 import pandas as pd
@@ -523,6 +524,18 @@ class View(QMainWindow):
         self.status_label.setText(text)
         self.status_label.setStyleSheet(f"color: {color};")
 
+    def _is_data_stale(self, last_update_text: str) -> bool:
+        """Checks if the data is stale (older than 24 hours)."""
+        if last_update_text == "NEVER":
+            return True
+        try:
+            last_update_date = datetime.strptime(last_update_text, "%Y-%m-%d")
+            # Data is stale if it's from a previous day
+            return last_update_date.date() < datetime.now().date()
+        except ValueError:
+            logger.warning(f"Could not parse last update time: {last_update_text}")
+            return True # Assume stale if parsing fails
+
     def set_update_time(self, text):
         """Set the last update time in the status bar.
 
@@ -540,6 +553,11 @@ class View(QMainWindow):
             >>> assert view.update_time_label.text() == "LAST UPDATE: 2023-10-27 10:30:00"
         """
         self.update_time_label.setText(f"LAST UPDATE: {text}")
+        # Add visual indicator when data is stale
+        if self._is_data_stale(text):
+            self.update_time_label.setStyleSheet(f"color: {THEME['negative']};")
+        else:
+            self.update_time_label.setStyleSheet(f"color: {THEME['positive']};")
 
     def clear_inputs(self):
         """Clear filter and category input fields.

@@ -321,7 +321,7 @@ class Model:
 
         return None, None
 
-    @functools.lru_cache(maxsize=128)
+    @functools.lru_cache(maxsize=50)
     @log_performance  # ⭐ NEW
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument."""

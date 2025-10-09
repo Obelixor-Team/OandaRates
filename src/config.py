@@ -261,6 +261,12 @@ def validate_config(config: Dict) -> None:
 
     _validate_config_types(config)  # Call type validation
 
+    # NEW: API Key Validation
+    if not config["api"]["headers"].get("Authorization"):
+        logging.warning(
+            "OANDA_API_KEY environment variable not set. API features may be disabled or fail."
+        )
+
 
 def _deep_merge(base, new):
     """Recursively merges two dictionaries."""
