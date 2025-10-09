@@ -2,7 +2,8 @@ import pytest
 from unittest.mock import MagicMock
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.model import Base, Model
+from src.model import Base
+
 
 @pytest.fixture
 def mock_requests(mocker):
@@ -16,6 +17,7 @@ def mock_requests(mocker):
     mocker.patch("requests.get", return_value=mock_response)
     return mock_response
 
+
 @pytest.fixture
 def mock_view():
     view = MagicMock()
@@ -24,12 +26,14 @@ def mock_view():
     view.table.setItem = MagicMock()
     return view
 
+
 @pytest.fixture
 def mock_model():
     model = MagicMock()
     model.categorize_instrument.return_value = "Forex"
     model.infer_currency.return_value = "USD"
     return model
+
 
 @pytest.fixture(scope="function")
 def db_session():

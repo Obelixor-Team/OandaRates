@@ -1,5 +1,5 @@
-import pytest
 from src.presenter import Presenter
+
 
 def test_on_filter_text_changed_triggers_update(mock_view, mock_model):
     p = Presenter(mock_model, mock_view)

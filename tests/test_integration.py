@@ -1,9 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
-from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt  # Import Qt
 from src.main import run_app
-import sys
 import os
 
 # Mock the config object for Model initialization
@@ -76,6 +74,7 @@ def test_manual_update_flow(main_window, mock_model, qtbot):
     #     ['EUR_USD', 'Forex', 'USD', 1, '1.00%', '-2.00%', '', '', ''],
     # ]
     # main_window.update_table.assert_called_with(expected_data)
+
 
 def test_app_starts_headless_without_exception(qapp, mock_model):
     os.environ["QT_QPA_PLATFORM"] = "offscreen"

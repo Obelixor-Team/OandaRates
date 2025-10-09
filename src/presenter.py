@@ -87,7 +87,9 @@ class Presenter:
                 },
             }
         )
-        self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
+        self.ui_update_queue.put(
+            {"type": "set_buttons_enabled", "payload": {"enabled": True}}
+        )
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
@@ -151,7 +153,10 @@ class Presenter:
             self.ui_update_queue.put(
                 {
                     "type": "status",
-                    "payload": {"text": "Invalid instrument name provided.", "is_error": True},
+                    "payload": {
+                        "text": "Invalid instrument name provided.",
+                        "is_error": True,
+                    },
                 }
             )
             return
@@ -449,7 +454,9 @@ class Presenter:
                 }
             )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
+            self.ui_update_queue.put(
+                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
+            )
             return
 
         if is_initial:
@@ -484,7 +491,9 @@ class Presenter:
                     }
                 )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
+            self.ui_update_queue.put(
+                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
+            )
         elif source == "scheduled" or source == "initial":
             new_data = self.model.fetch_and_save_rates(save_to_db=True)
             if new_data:
@@ -508,7 +517,9 @@ class Presenter:
                     }
                 )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
+            self.ui_update_queue.put(
+                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
+            )
 
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})

@@ -1,6 +1,7 @@
 import pytest
 from src.model import Model
 
+
 @pytest.mark.parametrize("save", [True, False])
 def test_fetch_and_save_rates(mock_requests, tmp_path, save):
     model = Model()

@@ -68,6 +68,7 @@ def mock_presenter(mock_model, mock_view):
     presenter = Presenter(mock_model, mock_view)
     return presenter
 
+
 @pytest.fixture
 def presenter_instance(mock_model, mock_view):
     presenter = Presenter(mock_model, mock_view)

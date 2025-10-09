@@ -1,0 +1,10 @@
+black
+ruff
+mypy
+bandit
+radon
+pytest
+pytest-qt
+pytest-mock
+pdoc
+pytest-cov
