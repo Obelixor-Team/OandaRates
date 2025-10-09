@@ -34,25 +34,34 @@ class Rate(Base):
     raw_data: Mapped[str] = mapped_column(Text, nullable=False)
 
 
-engine = create_engine(f"sqlite:///{DB_FILE}")
-Base.metadata.create_all(engine)
-Session = sessionmaker(bind=engine)
+# REMOVED: Global engine creation - now handled by Model class
+Session = None  # Will be initialized in Model.__init__
 
 
 class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
     def __init__(self):
+        # Create engine instance specifically for this Model
         self.engine = create_engine(
             f"sqlite:///{DB_FILE}",
             pool_pre_ping=True,  # Verify connections before using
             pool_recycle=3600,  # Recycle connections after 1 hour
+            echo=config.get("database", {}).get("echo_sql", False)  # Optional: for debugging
         )
-        self.Session = Session
+        
+        # Create all tables if they don't exist
+        Base.metadata.create_all(self.engine)
+        
+        # Create sessionmaker bound to this engine
+        self.Session = sessionmaker(bind=self.engine)
+        
+        logger.debug("Database engine and sessionmaker initialized")
 
     @contextmanager
     def get_session(self):
-        session = Session()
+        """Context manager for database sessions."""
+        session = self.Session()
         try:
             yield session
             session.commit()
@@ -64,7 +73,9 @@ class Model:
 
     def close(self):
         """Dispose of the database engine."""
-        self.engine.dispose()
+        if hasattr(self, 'engine'):
+            self.engine.dispose()
+            logger.debug("Database engine disposed")
 
     def _parse_json_data(
         self, raw_data_str: str, date: str

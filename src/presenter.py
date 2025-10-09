@@ -51,6 +51,12 @@ class Presenter:
 
     def shutdown(self) -> None:
         """Shuts down the scheduler and thread pool executor gracefully."""
+        logger.info("Starting application shutdown...")
+        
+        # Cancel any ongoing operations
+        self._cancellation_event.set()
+        
+        # Shutdown scheduler
         if self.scheduler:
             try:
                 if self.scheduler.running:
@@ -59,10 +65,15 @@ class Presenter:
             except Exception as e:
                 logger.warning(f"Error shutting down scheduler: {e}")
 
+        # Shutdown thread pool
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
+        
+        # Close model (which disposes database engine)
         self.model.close()
         logger.info("Model cleanup completed.")
+        
+        logger.info("Application shutdown completed.")
 
     def _queue_error(self, message: str) -> None:
         self.ui_update_queue.put(

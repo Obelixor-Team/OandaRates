@@ -33,20 +33,16 @@ with patch("src.model.config", MOCK_CONFIG):
 
 @pytest.fixture
 def model_instance():
-    # Use an in-memory SQLite database for testing
-    test_engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(test_engine)
-    TestSession = sessionmaker(bind=test_engine)
-
-    # Patch the module-level engine and Session in src.model
-    with (
-        patch("src.model.engine", test_engine),
-        patch("src.model.Session", TestSession),
-    ):
+    # Create a Model instance which will set up its own in-memory database
+    # by patching DB_FILE to ':memory:'
+    with patch("src.model.DB_FILE", ":memory:"):
         model = Model()
         yield model
-
-    Base.metadata.drop_all(test_engine)
+    # The engine is disposed when the model instance goes out of scope,
+    # or explicitly by calling model.close() if needed.
+    # For in-memory DBs, dropping metadata is not strictly necessary as it's ephemeral.
+    # However, if we were using a file-based DB for testing, this would be important.
+    # model.close() # This is implicitly called when the fixture tears down
 
 
 @pytest.fixture
