@@ -38,6 +38,17 @@ class Presenter:
     """
 
     def __init__(self, model: "Model", view: "View") -> None:
+        """Initializes the Presenter with a Model and a View.
+
+        Sets up the core components for managing application logic, data flow,
+        and UI interactions. It initializes data storage, UI state, a queue
+        for thread-safe UI updates, and components for background processing
+        and scheduling.
+
+        Args:
+            model (Model): The application's data model.
+            view (View): The application's user interface view.
+        """
         self.model = model
         self.view = view
         self.latest_date: Optional[str] = None
@@ -154,12 +165,23 @@ class Presenter:
     # --- Event Handlers (called by View) ---
 
     def on_app_start(self):
-        """Start initial data load and scheduler threads."""
+        """Handles the application startup event.
+
+        Initiates the initial data loading process in a background thread
+        and starts the scheduler for periodic updates. This method is
+        typically called once when the application begins execution.
+        """
         self.executor.submit(self._initial_load_job)
         self._start_scheduler()
 
     def on_manual_update(self):
-        """Handle the 'Manual Update' button click."""
+        """Handles the 'Manual Update' button click event.
+
+        Initiates a manual data fetch from the OANDA API in a background thread.
+        It clears any previous cancellation requests, disables update buttons
+        to prevent multiple simultaneous fetches, displays a status message,
+        and shows a progress indicator.
+        """
         logger.info("Manual update requested by user")
         self._cancellation_event.clear()
         self._queue_enable_buttons(False)
@@ -168,7 +190,13 @@ class Presenter:
         self.executor.submit(self._fetch_job, "manual")
 
     def on_cancel_update(self):
-        """Handle the 'Cancel Update' button click."""
+        """Handles the 'Cancel Update' button click event.
+
+        Sets an internal cancellation event to signal any ongoing background
+        operations (like API fetches) to stop gracefully. It updates the UI
+        status to inform the user about the cancellation request and re-enables
+        the update buttons.
+        """
         logger.info("Update cancellation requested by user")
         self._cancellation_event.set()
         self._queue_status(
@@ -200,13 +228,25 @@ class Presenter:
         self._update_display()
 
     def on_category_selected(self, category: str):
-        """Handle changes in the category dropdown."""
+        """Handles the event when a new category is selected from the dropdown.
+
+        Updates the internal `selected_category` state and triggers a refresh
+        of the displayed data to reflect the new category filter.
+
+        Args:
+            category (str): The newly selected category string.
+        """
         logger.debug(f"Category filter changed to: '{category}'")
         self.selected_category = category
         self._update_display()
 
     def on_clear_filter(self):
-        """Handle the 'Clear Filter' button click."""
+        """Handles the 'Clear Filter' button click event.
+
+        Resets the instrument filter text and the selected category to their
+        default states ("" and "All" respectively). It then triggers a UI
+        update to clear the input fields and refreshes the displayed data.
+        """
         self.filter_text = ""
         self.selected_category = "All"
         self._queue_clear_inputs()
@@ -289,7 +329,16 @@ class Presenter:
         return data
 
     def process_ui_updates(self):
-        """Check the queue for UI updates and apply them. Runs on the main thread."""
+        """Processes UI update messages from the internal queue.
+
+        This method runs on the main UI thread and is responsible for safely
+        applying changes to the user interface based on messages posted to
+        the `ui_update_queue` by background threads. It handles various
+        message types, including status updates, data display, progress
+        indicators, and history window presentation. Robust error handling
+        is included to prevent UI crashes due to malformed messages or
+        unexpected exceptions during processing.
+        """
         try:
             while not self.ui_update_queue.empty():
                 message = self.ui_update_queue.get_nowait()

@@ -429,7 +429,17 @@ class View(QMainWindow):
         self._presenter.on_instrument_double_clicked(instrument_name)
 
     def update_table(self, data: list[list[Any]]):
-        """Update the main table with new data."""
+        """Updates the main display table with new data.
+
+        This method populates the QTableWidget with the provided data,
+        handling numeric column formatting and coloring. It temporarily
+        disables sorting during the update to prevent visual glitches
+        and restores the previous sort order afterward.
+
+        Args:
+            data (list[list[Any]]): A list of lists, where each inner list
+                                    represents a row of data for the table.
+        """
         # Store current sort order
         current_sort_column = self.table.horizontalHeader().sortIndicatorSection()
         current_sort_order = self.table.horizontalHeader().sortIndicatorOrder()
@@ -449,7 +459,7 @@ class View(QMainWindow):
             for col_idx, cell_data in enumerate(row_data):
                 is_numeric = col_idx in NUMERIC_COLUMNS
                 item = self._create_table_item(cell_data, is_numeric)
-                self.table.setItem(row_idx, col_idx, item)
+                self.table.setItem(row_idx, col_idx, item);
 
         self.table.setSortingEnabled(True)
 
@@ -560,53 +570,29 @@ class View(QMainWindow):
             self.update_time_label.setStyleSheet(f"color: {THEME['positive']};")
 
     def clear_inputs(self):
-        """Clear filter and category input fields.
+        """Clears the instrument filter input field and resets the category selection.
 
-        Resets the text in the instrument filter input field and sets the
-        category dropdown to its default "All" selection.
-
-        Example:
-            >>> from unittest.mock import MagicMock
-            >>> view = View(MagicMock())
-            >>> view._setup_ui()
-            >>> view.filter_input.setText("some text")
-            >>> view.category_combo.setCurrentIndex(1) # Select a category other than All
-            >>> view.clear_inputs()
-            >>> assert view.filter_input.text() == ""
-            >>> assert view.category_combo.currentIndex() == 0 # "All" is usually the first item
+        Resets the text in the instrument filter input field to an empty string
+        and sets the category dropdown to its default "All" selection (index 0).
         """
         self.filter_input.setText("")
         self.category_combo.setCurrentIndex(0)
 
     def show_progress_bar(self):
-        """Show the progress bar.
+        """Makes the indeterminate progress bar visible in the status bar.
 
-        Makes the indeterminate progress bar visible in the status bar,
-        typically indicating an ongoing background operation.
-
-        Example:
-            >>> from unittest.mock import MagicMock
-            >>> view = View(MagicMock())
-            >>> view._setup_ui()
-            >>> view.show_progress_bar()
-            >>> assert view.progress_bar.isVisible()
+        This indicates to the user that a background operation is currently
+        in progress, such as fetching data from the API or performing
+        a lengthy calculation.
         """
         self.progress_bar.setVisible(True)
 
     def hide_progress_bar(self):
-        """Hide the progress bar.
+        """Hides the indeterminate progress bar from the status bar.
 
-        Makes the indeterminate progress bar invisible in the status bar,
-        typically indicating the completion of a background operation.
-
-        Example:
-            >>> from unittest.mock import MagicMock
-            >>> view = View(MagicMock())
-            >>> view._setup_ui()
-            >>> view.show_progress_bar()
-            >>> assert view.progress_bar.isVisible()
-            >>> view.hide_progress_bar()
-            >>> assert not view.progress_bar.isVisible()
+        This signals the completion of a background operation, such as
+        a data fetch or calculation, and restores the status bar to its
+        normal state.
         """
         self.progress_bar.setVisible(False)
 
