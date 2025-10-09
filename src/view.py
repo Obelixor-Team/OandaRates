@@ -521,6 +521,7 @@ class View(QMainWindow):
             self.set_status("Invalid statistics data", is_error=True)
             return
         dialog = HistoryDialog(instrument_name, history_df, stats, self)
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.exec()
 
     def set_status(self, text, is_error=False):

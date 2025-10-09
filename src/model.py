@@ -41,7 +41,11 @@ class Model:
     """Manages data operations, including fetching from OANDA API and database."""
 
     def __init__(self):
-        self.engine = engine
+        self.engine = create_engine(
+            f"sqlite:///{DB_FILE}",
+            pool_pre_ping=True,  # Verify connections before using
+            pool_recycle=3600    # Recycle connections after 1 hour
+        )
         self.Session = Session
 
     @contextmanager
@@ -57,8 +61,8 @@ class Model:
             session.close()
 
     def close(self):
-        """Closes the database session."""
-        pass
+        """Dispose of the database engine."""
+        self.engine.dispose()
 
     def categorize_instrument(self, instrument: str) -> str:
         """Categorizes an instrument into a specific group based on its name.
@@ -114,18 +118,21 @@ class Model:
 
     def infer_currency(self, instrument_name: str, api_currency: str) -> str:
         """Infers the currency from the instrument name or falls back to API provided currency.
+    
+        Args:
+            instrument_name: The name of the instrument.
+            api_currency: The currency provided by the API.
+            
         Returns:
             str: The inferred currency.
-
+            
         Example:
             >>> model = Model()
-            >>> model._infer_currency("EUR/USD", "USD")
+            >>> model.infer_currency("EUR/USD", "USD")
             'USD'
-            >>> model._infer_currency("XAU_USD", "USD") # Assuming XAU_USD is configured to map to USD
-            'USD'
-            >>> model._infer_currency("DE30_EUR", "EUR")
+            >>> model.infer_currency("DE30_EUR", "EUR")
             'EUR'
-        """ ""
+        """
         if "/" in instrument_name:
             return instrument_name.split("/")[1]
 
@@ -199,14 +206,14 @@ class Model:
                         else:
                             new_rate = Rate(date=today, raw_data=raw_data_str)
                             session.add(new_rate)
-                        self.get_instrument_history.cache_clear()
-                        return data
+                    # Cache clear AFTER context manager closes
+                    self.get_instrument_history.cache_clear()
                 except exc.SQLAlchemyError as e:
                     logger.error(f"Database error occurred: {e}")
                     logger.info("Database session rolled back.")
                     return None
-            else:
-                return data
+            
+            return data
 
         except requests.exceptions.RequestException as e:
             logger.error(f"API request failed: {e}")
@@ -236,8 +243,11 @@ class Model:
         with self.get_session() as session:
             rate = session.query(Rate).order_by(Rate.date.desc()).first()
             if rate:
-                return str(rate.date), json.loads(rate.raw_data)
-            return None, None
+                try:
+                    return str(rate.date), json.loads(rate.raw_data)
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse latest rate data: {e}")
+                    return None, None
 
     @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:

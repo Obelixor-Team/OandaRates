@@ -41,23 +41,19 @@ class Presenter:
         self._cancellation_event = threading.Event()
 
     def shutdown(self) -> None:
-        """Shuts down the scheduler and thread pool executor gracefully.
-
-        This method is called when the application is closing to ensure that
-        all background tasks are properly terminated, preventing resource leaks.
-
-        Example:
-            >>> # Assuming 'presenter' is an instance of Presenter
-            >>> presenter.shutdown()
-            # Expected: Scheduler and ThreadPoolExecutor are shut down,
-            # and corresponding log messages are generated.
-        """
-        if self.scheduler and self.scheduler.running:
-            self.scheduler.shutdown(wait=True)
-            logger.info("Scheduler shut down.")
+        """Shuts down the scheduler and thread pool executor gracefully."""
+        if self.scheduler:
+            try:
+                if self.scheduler.running:
+                    self.scheduler.shutdown(wait=True)
+                    logger.info("Scheduler shut down.")
+            except Exception as e:
+                logger.warning(f"Error shutting down scheduler: {e}")
+        
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
-        logger.info("Model database session closed.")
+        self.model.close()
+        logger.info("Model cleanup completed.")
 
     def _queue_error(self, message: str) -> None:
         self.ui_update_queue.put(
