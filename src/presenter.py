@@ -294,6 +294,45 @@ class Presenter:
         )
         self._queue_status("History window displayed.")
 
+    def on_export_data(self):
+        """Handles the 'Export to CSV' button click event.
+
+        Retrieves the currently filtered and displayed data, prompts the user
+        for a save location, and exports the data to a CSV file. Provides
+        feedback to the user via status messages.
+        """
+        if not self.raw_data or "financingRates" not in self.raw_data:
+            self._queue_error("No data to export.")
+            return
+
+        # Get the currently filtered data
+        filtered_data_list = self._filter_and_transform_rates()
+
+        if not filtered_data_list:
+            self._queue_error("No filtered data to export.")
+            return
+
+        # Convert to DataFrame for easier CSV export
+        # Assuming the headers are consistent with the order in _process_rate
+        headers = [
+            "Instrument", "Category", "Currency", "Days",
+            "Long Rate", "Short Rate", "Long Charge", "Short Charge", "Units"
+        ]
+        df = pd.DataFrame(filtered_data_list, columns=headers)
+
+        default_filename = f"oanda_rates_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        file_path = self.view.show_save_file_dialog(default_filename)
+
+        if file_path:
+            try:
+                df.to_csv(file_path, index=False)
+                self._queue_status(f"Data successfully exported to {file_path}")
+            except Exception as e:
+                logger.exception(f"Error exporting data to CSV: {e}")
+                self._queue_error(f"Error exporting data: {e}")
+        else:
+            self._queue_status("Export cancelled.")
+
     # --- Core Logic (UI-Thread Safe) ---
 
     def _process_and_cache_data(self, data: RatesData) -> RatesData:  # ⭐ Changed

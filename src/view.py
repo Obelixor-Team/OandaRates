@@ -8,6 +8,7 @@ import matplotlib.dates as mdates
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
+    QFileDialog, # NEW
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -250,6 +251,7 @@ class View(QMainWindow):
         self.clear_btn.clicked.connect(self._presenter.on_clear_filter)
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
         self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
+        self.export_btn.clicked.connect(self._presenter.on_export_data) # NEW
 
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
@@ -393,6 +395,13 @@ class View(QMainWindow):
         control_layout.addWidget(self.update_btn)
         control_layout.addWidget(self.cancel_btn)
 
+        self.export_btn = QPushButton("Export to CSV")
+        self.export_btn.setAccessibleName("Export to CSV Button")
+        self.export_btn.setAccessibleDescription(
+            "Exports the currently displayed table data to a CSV file."
+        )
+        control_layout.addWidget(self.export_btn)
+
         main_layout.addLayout(control_layout)
         main_layout.addWidget(self.table)
 
@@ -401,7 +410,8 @@ class View(QMainWindow):
         self.setTabOrder(self.category_combo, self.clear_btn)
         self.setTabOrder(self.clear_btn, self.update_btn)
         self.setTabOrder(self.update_btn, self.cancel_btn)
-        self.setTabOrder(self.cancel_btn, self.table)
+        self.setTabOrder(self.cancel_btn, self.export_btn) # NEW
+        self.setTabOrder(self.export_btn, self.table)
 
     def _on_table_double_click(self, item):
         """Handles the double-click event on a table item.
@@ -595,6 +605,26 @@ class View(QMainWindow):
         normal state.
         """
         self.progress_bar.setVisible(False)
+
+    def show_save_file_dialog(self, default_filename: str) -> Optional[str]:
+        """Opens a save file dialog and returns the selected file path.
+
+        Args:
+            default_filename (str): The default filename to suggest to the user.
+
+        Returns:
+            Optional[str]: The absolute path to the selected file, or None if the dialog was cancelled.
+        """
+        options = QFileDialog.Options()
+        # options |= QFileDialog.Option.DontUseNativeDialog # Uncomment for non-native dialog
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Data to CSV",
+            default_filename,
+            "CSV Files (*.csv);;All Files (*)",
+            options=options,
+        )
+        return file_path if file_path else None
 
     def _apply_stylesheet(self):
         """Applies a CSS-like stylesheet to the application based on the current theme."""
