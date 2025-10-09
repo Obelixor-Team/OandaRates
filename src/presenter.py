@@ -214,9 +214,11 @@ class Presenter:
 
     def on_instrument_double_clicked(self, instrument_name: str):
         """Handle a double-click event on the table to show history."""
-        if not isinstance(instrument_name, str) or not instrument_name.strip():
-            logger.warning(f"Invalid instrument_name: '{instrument_name}'")
-            self._queue_error("Invalid instrument name provided.")
+        if not instrument_name or not isinstance(instrument_name, str):
+            self._queue_error("Invalid instrument name")
+            return
+        if len(instrument_name) > 100:  # Reasonable max length
+            self._queue_error("Instrument name too long")
             return
 
         self._queue_status(f"Loading history for {instrument_name}...")

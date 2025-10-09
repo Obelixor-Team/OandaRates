@@ -1,0 +1,8 @@
+requests
+SQLAlchemy
+schedule
+pandas
+matplotlib
+PyQt6
+apscheduler
+PyYAML

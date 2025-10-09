@@ -22,18 +22,12 @@ The OANDA Financing Terminal is a Python-based desktop application for retrievin
    ```
 
 2. **Install Dependencies**:
-   Install required packages using `pip`:
+   Create a virtual environment and install required packages:
    ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
    pip install -r requirements.txt
    ```
-   The `requirements.txt` includes:
-   - `requests`
-   - `SQLAlchemy`
-   - `PyQt6`
-   - `matplotlib`
-   - `pandas`
-   - `pytz`
-   - `apscheduler`
 
 3. **Set Environment Variables**:
    Set the `OANDA_API_KEY` environment variable for secure API access:
@@ -134,11 +128,11 @@ categories:
 - **Run Tests**:
   Install development dependencies:
   ```bash
-  pip install -r requirements.txt --extra-index-url [dev]
+  pip install -r requirements-dev.txt
   ```
   Run tests with `pytest`:
   ```bash
-  pytest tests/test_oanda_terminal.py
+  pytest
   ```
 - **Code Style**:
   Use `ruff` for linting and `black` for formatting:
