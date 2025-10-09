@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, Callable
+import time
+from .performance import log_performance
 import logging
 import functools
 from contextlib import contextmanager
@@ -63,6 +65,42 @@ class Model:
     def close(self):
         """Dispose of the database engine."""
         self.engine.dispose()
+
+    def _retry_with_backoff(
+        self,
+        func: Callable,
+        max_retries: int = 3,
+        initial_delay: float = 1.0,
+    ) -> Optional[Dict]:
+        """Retry a function with exponential backoff.
+
+        Args:
+            func: The function to retry
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds (doubles each retry)
+
+        Returns:
+            Result from func or None if all retries failed
+        """
+        delay = initial_delay
+
+        for attempt in range(max_retries):
+            try:
+                return func()
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"API request failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {delay}s..."
+                    )
+                    time.sleep(delay)
+                    delay *= 2  # Exponential backoff
+                else:
+                    logger.error(
+                        f"API request failed after {max_retries} attempts: {e}"
+                    )
+
+        return None
 
     def _query_all_rates_ordered(self, ascending: bool = True) -> list[Dict[str, Any]]:
         """Query all rates ordered by date, returning their date and raw data.
@@ -174,54 +212,30 @@ class Model:
                 return currency
         return api_currency
 
+    @log_performance  # ⭐ NEW
     def fetch_and_save_rates(self, save_to_db: bool = True) -> Optional[Dict]:
-        """Fetch financing rates from the OANDA API and optionally save to the database.
-
-        This method sends a GET request to the OANDA API to retrieve the latest
-        financing rates. If `save_to_db` is True, it will store the raw JSON
-        response in the SQLite database.
-
-        Args:
-            save_to_db: Whether to save the fetched data to the database.
-
-        Returns:
-            Optional[Dict]: The fetched data as a dictionary, or None on failure.
-            Example of returned data:
-            {
-                "financingRates": [
-                    {
-                        "instrument": "EUR_USD",
-                        "longRate": "0.0083",
-                        "shortRate": "-0.0133"
-                    },
-                    ...
-                ]
-            }
-
-        Raises:
-            requests.exceptions.RequestException: If the API request fails.
-            ValueError: If the API response is malformed.
-            sqlalchemy.exc.SQLAlchemyError: If database operations fail.
-
-        Example:
-            >>> model = Model()
-            >>> rates_data = model.fetch_and_save_rates(save_to_db=False)
-            >>> if rates_data:
-            ...     print(rates_data['financingRates'][0]['instrument'])
-            EUR_USD
-        """
+        """Fetch financing rates from the OANDA API and optionally save to the database."""
         if not HEADERS.get("Authorization"):
             raise ValueError(
                 "OANDA_API_KEY environment variable is not set or is empty."
             )
-        try:
+
+        def _fetch_from_api() -> Dict:
+            """Inner function for the actual API call."""
             response = requests.get(  # nosec B113
                 API_URL,
                 headers=HEADERS,
                 timeout=config.get("api", {}).get("timeout", 10),
             )
             response.raise_for_status()
-            data = response.json()
+            return response.json()
+
+        try:
+            # Use retry logic for API call
+            data = self._retry_with_backoff(_fetch_from_api)
+
+            if data is None:
+                return None
 
             if "financingRates" not in data:
                 logger.warning("API response did not contain 'financingRates' key.")
@@ -247,9 +261,6 @@ class Model:
 
             return data
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"API request failed: {e}")
-            return None
         except ValueError as e:
             logger.error(f"Failed to parse API response: {e}")
             return None
@@ -271,6 +282,7 @@ class Model:
         return None, None
 
     @functools.lru_cache(maxsize=128)
+    @log_performance  # ⭐ NEW
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
         """Retrieve the historical long and short rates for a specific instrument."""
         history = []

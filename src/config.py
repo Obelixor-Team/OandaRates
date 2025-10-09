@@ -33,6 +33,8 @@ DEFAULT_CONFIG = {
             "Authorization": os.getenv("OANDA_API_KEY", ""),
         },
         "timeout": 10,
+        "max_retries": 3,  # NEW
+        "retry_delay": 1.0,  # NEW
     },
     "database": {
         "file": "oanda_rates.db",
@@ -163,9 +165,21 @@ DEFAULT_CONFIG = {
 
 def _validate_config_types(config: Dict) -> None:
     """Validate the types of critical configuration values."""
+    # Validate api.max_retries NEW
+    if not isinstance(config["api"]["max_retries"], int):
+        raise TypeError("Config error: api.max_retries must be an integer.")
+    if config["api"]["max_retries"] < 1 or config["api"]["max_retries"] > 10:
+        raise ValueError("Config error: api.max_retries must be between 1 and 10.")
+
+    # Validate api.retry_delay NEW
+    if not isinstance(config["api"]["retry_delay"], (int, float)):
+        raise TypeError("Config error: api.retry_delay must be a number.")
+    if config["api"]["retry_delay"] < 0.1 or config["api"]["retry_delay"] > 60:
+        raise ValueError("Config error: api.retry_delay must be between 0.1 and 60.")
+
     # Validate api.timeout
-    if not isinstance(config["api"]["timeout"], int):
-        raise TypeError("Config error: api.timeout must be an integer.")
+    if not isinstance(config["api"]["timeout"], (int, float)):
+        raise TypeError("Config error: api.timeout must be a number.")
 
     # Validate theme colors
     for key, value in config["theme"].items():
@@ -208,6 +222,8 @@ def validate_config(config: Dict) -> None:
         "api.url",
         "api.headers",
         "api.timeout",
+        "api.max_retries",  # NEW
+        "api.retry_delay",  # NEW
         "database.file",
         "categories.currencies",
         "categories.metals",

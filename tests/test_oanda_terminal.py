@@ -181,13 +181,13 @@ def test_on_filter_text_changed_valid(mock_presenter, mock_view):
 
 def test_on_filter_text_changed_too_long(mock_presenter, mock_view):
     """Test Presenter.on_filter_text_changed with overly long input."""
-    long_text = "a" * 101
+    long_text = "a" * 51  # MAX_FILTER_LENGTH + 1
     mock_presenter.on_filter_text_changed(long_text)
-    assert mock_presenter.filter_text == "a" * 100
+    assert mock_presenter.filter_text == "a" * 50  # MAX_FILTER_LENGTH
     mock_presenter.process_ui_updates()
     mock_view.set_status.assert_called_once()
     call_args, call_kwargs = mock_view.set_status.call_args
-    assert call_args[0] == "Filter text too long (max 100 chars)"
+    assert call_args[0] == "Filter text too long (max 50 chars)"
     assert call_kwargs["is_error"] is True
 
 

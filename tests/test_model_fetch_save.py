@@ -104,10 +104,10 @@ def test_fetch_and_save_rates_api_error(
 
     # Assert
     assert result is None
-    mock_requests_get.assert_called_once_with(
+    assert mock_requests_get.call_count == 3
+    mock_requests_get.assert_called_with(
         API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
     )
-    # No data should be saved to DB on API error
     with model_instance.Session() as session:
         assert session.query(Rate).count() == 0
 
@@ -149,7 +149,10 @@ def test_fetch_and_save_rates_db_error(
 
         # Assert
         assert result is None
-        mock_requests_get.assert_called_once_with(
+        assert (
+            mock_requests_get.call_count == 1
+        )  # Only one call to requests.get before DB error
+        mock_requests_get.assert_called_with(
             API_URL, headers=MOCK_CONFIG["api"]["headers"], timeout=10
         )
 

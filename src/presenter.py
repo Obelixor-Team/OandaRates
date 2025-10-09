@@ -1,12 +1,15 @@
 import queue
 import logging
+import re
 import threading
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict
+from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict, TypeAlias
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
+
+from .performance import log_performance
 
 if TYPE_CHECKING:
     from .model import Model
@@ -14,7 +17,13 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-MAX_FILTER_LENGTH = 100
+MAX_FILTER_LENGTH = 50  # Define max length for filter input
+
+# Type aliases for clarity ⭐ NEW
+TableRow: TypeAlias = list[str]
+TableData: TypeAlias = list[TableRow]
+RatesData: TypeAlias = Dict[str, Any]
+StatsData: TypeAlias = Dict[str, float]
 
 
 class UIUpdate(TypedDict):
@@ -79,7 +88,7 @@ class Presenter:
             {"type": "set_buttons_enabled", "payload": {"enabled": enabled}}
         )
 
-    def _queue_update_table(self, data: list) -> None:
+    def _queue_update_table(self, data: TableData) -> None:  # ⭐ Changed
         """Update table data via queue."""
         self.ui_update_queue.put({"type": "update_table", "payload": {"data": data}})
 
@@ -140,6 +149,7 @@ class Presenter:
 
     def on_manual_update(self):
         """Handle the 'Manual Update' button click."""
+        logger.info("Manual update requested by user")
         self._cancellation_event.clear()
         self._queue_enable_buttons(False)
         self._queue_status("Fetching new data from API...")
@@ -148,6 +158,7 @@ class Presenter:
 
     def on_cancel_update(self):
         """Handle the 'Cancel Update' button click."""
+        logger.info("Update cancellation requested by user")
         self._cancellation_event.set()
         self._queue_status(
             "Cancellation requested. Waiting for current operation to finish..."
@@ -159,17 +170,27 @@ class Presenter:
         if not isinstance(filter_text, str):
             logger.warning(f"Invalid type for filter_text: {type(filter_text)}")
             return
-        if len(filter_text) > MAX_FILTER_LENGTH:
+
+        # Sanitize input - remove potentially problematic characters
+        # Allow only alphanumeric, spaces, underscores, hyphens, and forward slashes
+        sanitized_text = re.sub(r"[^\w\s/_-]", "", filter_text)
+
+        if sanitized_text != filter_text:
+            logger.info(f"Filter text sanitized: '{filter_text}' -> '{sanitized_text}'")
+
+        if len(sanitized_text) > MAX_FILTER_LENGTH:
             logger.warning(
                 f"Filter text exceeds maximum length of {MAX_FILTER_LENGTH} characters."
             )
             self._queue_error(f"Filter text too long (max {MAX_FILTER_LENGTH} chars)")
-            filter_text = filter_text[:MAX_FILTER_LENGTH]
-        self.filter_text = filter_text.lower()
+            sanitized_text = sanitized_text[:MAX_FILTER_LENGTH]
+
+        self.filter_text = sanitized_text.lower()
         self._update_display()
 
     def on_category_selected(self, category: str):
         """Handle changes in the category dropdown."""
+        logger.debug(f"Category filter changed to: '{category}'")
         self.selected_category = category
         self._update_display()
 
@@ -222,7 +243,7 @@ class Presenter:
 
     # --- Core Logic (UI-Thread Safe) ---
 
-    def _process_and_cache_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_and_cache_data(self, data: RatesData) -> RatesData:  # ⭐ Changed
         """Process and cache the raw data.
 
         This method takes raw financing rate data, calculates percentage values
@@ -255,73 +276,72 @@ class Presenter:
         return data
 
     def process_ui_updates(self):
-        """Check the queue for UI updates and apply them. Runs on the main thread.
-
-        This method is typically called periodically by a QTimer in the View.
-        It dequeues UIUpdate messages and dispatches them to the appropriate
-        View methods or updates internal state.
-
-        Example:
-            >>> # Assuming a Presenter instance 'p' and a View instance 'v'
-            >>> # A message is put into the queue (e.g., from a background thread)
-            >>> p.ui_update_queue.put({
-            ...     "type": "status",
-            ...     "payload": {"text": "Loading data...", "is_error": False}
-            ... })
-            >>> p.process_ui_updates()
-            >>> v.set_status.assert_called_once_with("Loading data...", is_error=False)
-
-            >>> p.ui_update_queue.put({
-            ...     "type": "data",
-            ...     "payload": {"financingRates": []}
-            ... })
-            >>> p.process_ui_updates()
-            >>> v.hide_progress_bar.assert_called_once()
-            >>> v.set_update_time.assert_called_once()
-        """
+        """Check the queue for UI updates and apply them. Runs on the main thread."""
         try:
             while not self.ui_update_queue.empty():
                 message = self.ui_update_queue.get_nowait()
                 msg_type = message.get("type")
                 payload = message.get("payload")
 
-                if msg_type == "status":
-                    self.view.set_status(
-                        payload.get("text"),
-                        is_error=payload.get("is_error", False),
+                # Validate message structure ⭐ NEW
+                if not msg_type:
+                    logger.warning(f"Received UI update with no type: {message}")
+                    continue
+
+                try:  # ⭐ NEW - Wrap individual message processing
+                    if msg_type == "status":
+                        self.view.set_status(
+                            payload.get("text", ""),
+                            is_error=payload.get("is_error", False),
+                        )
+                    elif msg_type == "data":
+                        self._queue_hide_progress()
+                        self.raw_data = self._process_and_cache_data(payload)
+                        self.latest_date = datetime.now().strftime("%Y-%m-%d")
+                        self.view.set_update_time(self.latest_date)
+                        self._update_display()
+                    elif msg_type == "initial_data":
+                        self._queue_hide_progress()
+                        self.latest_date, raw_data = payload
+                        self.raw_data = self._process_and_cache_data(raw_data)
+                        self.view.set_update_time(self.latest_date or "NEVER")
+                        self._update_display()
+                    elif msg_type == "show_progress":
+                        self.view.show_progress_bar()
+                    elif msg_type == "hide_progress":
+                        self.view.hide_progress_bar()
+                    elif msg_type == "set_buttons_enabled":
+                        self.view.set_update_buttons_enabled(
+                            payload.get("enabled", True)
+                        )
+                    elif msg_type == "clear_inputs":
+                        self.view.clear_inputs()
+                    elif msg_type == "show_history_window":
+                        self.view.show_history_window(
+                            payload.get("instrument_name", ""),
+                            payload.get("history_df", pd.DataFrame()),
+                            payload.get("stats", {}),
+                        )
+                    elif msg_type == "update_table":
+                        self.view.update_table(payload.get("data", []))
+                    else:
+                        # ⭐ NEW - Handle unknown message types
+                        logger.warning(f"Unknown UI update message type: {msg_type}")
+
+                except (
+                    Exception
+                ) as e:  # ⭐ NEW - Catch individual message processing errors
+                    logger.exception(
+                        f"Error processing UI update of type '{msg_type}': {e}"
                     )
-                elif msg_type == "data":
-                    self._queue_hide_progress()
-                    self.raw_data = self._process_and_cache_data(payload)
-                    self.latest_date = datetime.now().strftime("%Y-%m-%d")
-                    self.view.set_update_time(self.latest_date)
-                    self._update_display()
-                elif msg_type == "initial_data":
-                    self._queue_hide_progress()
-                    self.latest_date, raw_data = payload
-                    self.raw_data = self._process_and_cache_data(raw_data)
-                    self.view.set_update_time(self.latest_date or "NEVER")
-                    self._update_display()
-                elif msg_type == "show_progress":
-                    self.view.show_progress_bar()
-                elif msg_type == "hide_progress":
-                    self.view.hide_progress_bar()
-                elif msg_type == "set_buttons_enabled":
-                    self.view.set_update_buttons_enabled(payload["enabled"])
-                elif msg_type == "clear_inputs":
-                    self.view.clear_inputs()
-                elif msg_type == "show_history_window":
-                    self.view.show_history_window(
-                        payload["instrument_name"],
-                        payload["history_df"],
-                        payload["stats"],
-                    )
-                elif msg_type == "update_table":
-                    self.view.update_table(payload["data"])
+                    # Continue processing other messages
 
         except queue.Empty:
             pass
+        except Exception as e:  # ⭐ NEW - Catch catastrophic errors
+            logger.exception(f"Critical error in UI update processing: {e}")
 
+    @log_performance  # ⭐ NEW
     def _update_display(self):
         """Filter the current data and update the view's table.
 
