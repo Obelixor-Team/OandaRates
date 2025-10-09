@@ -279,6 +279,8 @@ class Model:
 
         def _fetch_from_api() -> Dict:
             """Inner function for the actual API call."""
+            # Security Recommendation: SSL certificate verification is enabled by default in requests.
+            # Ensure that the API_URL uses HTTPS for secure communication.
             response = requests.get(  # nosec B113
                 API_URL,
                 headers=HEADERS,
@@ -294,9 +296,16 @@ class Model:
             if data is None:
                 return None
 
+            # Security Recommendation: Validate API response structure and content.
+            # Current check ensures 'financingRates' key exists. Further validation
+            # could involve checking types/formats of individual rate fields.
             if "financingRates" not in data:
                 logger.warning("API response did not contain 'financingRates' key.")
                 return None
+
+            # Security Recommendation: Consider rate limiting for API calls to prevent abuse
+            # and adhere to API provider policies. This could be implemented here or
+            # within the _retry_with_backoff mechanism.
 
             if save_to_db:
                 try:
