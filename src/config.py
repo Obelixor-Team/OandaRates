@@ -89,6 +89,7 @@ DEFAULT_CONFIG = {
     },
     "database": {
         "file": "oanda_rates.db",
+        "timeout": 10, # NEW: Database connection timeout in seconds
     },
     "categories": {
         "currencies": [
@@ -232,6 +233,12 @@ def _validate_config_types(config: Dict) -> None:
     if not isinstance(config["api"]["timeout"], (int, float)):
         raise TypeError("Config error: api.timeout must be a number.")
 
+    # Validate database.timeout NEW
+    if not isinstance(config["database"]["timeout"], (int, float)):
+        raise TypeError("Config error: database.timeout must be a number.")
+    if config["database"]["timeout"] < 1 or config["database"]["timeout"] > 60:
+        raise ValueError("Config error: database.timeout must be between 1 and 60.")
+
     # Validate theme colors
     for key, value in config["theme"].items():
         if not isinstance(value, str):
@@ -276,6 +283,7 @@ def validate_config(config: Dict) -> None:
         "api.max_retries",  # NEW
         "api.retry_delay",  # NEW
         "database.file",
+        "database.timeout", # NEW
         "categories.currencies",
         "categories.metals",
         "categories.commodities",

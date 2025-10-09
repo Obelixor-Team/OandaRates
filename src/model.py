@@ -54,7 +54,8 @@ class Model:
             f"sqlite:///{DB_FILE}",
             pool_pre_ping=True,  # Verify connections before using
             pool_recycle=3600,  # Recycle connections after 1 hour
-            echo=config.get("database", {}).get("echo_sql", False)  # Optional: for debugging
+            echo=config.get("database", {}).get("echo_sql", False),  # Optional: for debugging
+            connect_args={"timeout": config.get("database", {}).get("timeout", 10)} # NEW: Add connection timeout
         )
         
         # Create all tables if they don't exist
@@ -390,3 +391,18 @@ class Model:
                     )
 
         return pd.DataFrame(history)
+
+# Performance Consideration: Pagination for very long history
+# For instruments with extremely long historical data, fetching all at once
+# can be inefficient. Consider implementing pagination in get_instrument_history
+# and corresponding UI changes to fetch data in chunks.
+
+# Performance Consideration: Connection Pooling Metrics Monitoring
+# For high-load scenarios, monitoring SQLAlchemy's connection pool (e.g., size,
+# checkout time, overflow) can help optimize database access. This would involve
+# integrating with a monitoring system or custom logging.
+
+# Performance Consideration: Memory Usage Monitoring
+# When dealing with large datasets (e.g., extensive history_df), memory usage
+# can become a concern. Tools like 'resource' module or third-party profilers
+# can be used to monitor and optimize memory consumption.
