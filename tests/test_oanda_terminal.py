@@ -29,8 +29,10 @@ MOCK_CONFIG = {
 
 # Patch the config object before importing Model
 # This ensures Model uses our mock config for API_URL, HEADERS, DB_FILE
-with patch("src.model.config", MOCK_CONFIG):
+with patch("src.model.config", MOCK_CONFIG), \
+     patch("src.config.config", MOCK_CONFIG): # NEW: Patch src.config.config
     from src.model import Model, Rate, Base, API_URL
+    from src.presenter import Presenter # NEW: Import Presenter here
 
 
 @pytest.fixture
@@ -71,8 +73,6 @@ def mock_view():
 
 @pytest.fixture
 def mock_presenter(mock_model, mock_view):
-    from src.presenter import Presenter
-
     presenter = Presenter(mock_model, mock_view)
     return presenter
 

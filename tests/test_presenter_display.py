@@ -1,7 +1,30 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import time
-from src.presenter import Presenter
+
+# Mock configuration for testing (similar to test_oanda_terminal.py)
+MOCK_CONFIG = {
+    "api": {
+        "url": "https://labs-api.oanda.com/v1/financing-rates",
+        "headers": {"Authorization": "test_key", "Accept": "application/json"},
+        "timeout": 10,
+    },
+    "database": {"file": ":memory:"},
+    "categories": {
+        "currencies": ["usd", "eur", "jpy"],
+        "metals": ["xau", "xag"],
+        "commodities": ["wtico_usd"],
+        "indices": ["spx500_usd"],
+        "bonds": ["us_10yr_tnote"],
+        "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
+    },
+    "ui": {"timer_interval": 16, "rate_display_format": "percentage"}, # NEW: Add rate_display_format
+    "logging": {"level": "INFO", "file_path": "test.log"},
+}
+
+# Patch the config object before importing Presenter
+with patch("src.config.config", MOCK_CONFIG):
+    from src.presenter import Presenter
 
 
 # Mock the Model and View for the Presenter

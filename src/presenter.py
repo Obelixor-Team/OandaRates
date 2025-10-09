@@ -9,6 +9,7 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 
+from .config import config # NEW
 from .performance import log_performance
 
 if TYPE_CHECKING:
@@ -59,6 +60,7 @@ class Presenter:
         self.scheduler: Optional[BackgroundScheduler] = None
         self.executor = ThreadPoolExecutor(max_workers=2)  # Limit concurrent tasks
         self._cancellation_event = threading.Event()
+        self.rate_display_format = config.get("ui", {}).get("rate_display_format", "percentage") # NEW
 
     def shutdown(self) -> None:
         """Shuts down the scheduler and thread pool executor gracefully."""
@@ -333,6 +335,22 @@ class Presenter:
         else:
             self._queue_status("Export cancelled.")
 
+    def on_rate_display_format_changed(self, format_type: str) -> None:
+        """Handles the event when the rate display format is changed.
+
+        Updates the internal `rate_display_format` and triggers a UI refresh.
+
+        Args:
+            format_type (str): The new format type ('percentage' or 'basis_points').
+        """
+        if format_type in ["percentage", "basis_points"]:
+            self.rate_display_format = format_type
+            logger.info(f"Rate display format changed to: {format_type}")
+            self._update_display()
+        else:
+            logger.warning(f"Invalid rate display format received: {format_type}")
+            self._queue_error(f"Invalid display format: {format_type}")
+
     # --- Core Logic (UI-Thread Safe) ---
 
     def _process_and_cache_data(self, data: RatesData) -> RatesData:  # ⭐ Changed
@@ -363,8 +381,17 @@ class Presenter:
         """
         if "financingRates" in data:
             for rate in data["financingRates"]:
-                rate["longRate_pct"] = float(rate.get("longRate", 0.0)) * 100
-                rate["shortRate_pct"] = float(rate.get("shortRate", 0.0)) * 100
+                # Store raw float values
+                long_rate_float = float(rate.get("longRate", 0.0))
+                short_rate_float = float(rate.get("shortRate", 0.0))
+                rate["longRate_raw"] = long_rate_float
+                rate["shortRate_raw"] = short_rate_float
+
+                # Calculate percentage and basis points
+                rate["longRate_pct"] = long_rate_float * 100
+                rate["shortRate_pct"] = short_rate_float * 100
+                rate["longRate_bp"] = long_rate_float * 10000
+                rate["shortRate_bp"] = short_rate_float * 10000
         return data
 
     def process_ui_updates(self):
@@ -511,13 +538,26 @@ class Presenter:
             return None
 
         currency = self.model.infer_currency(instrument, rate.get("currency", ""))
+        long_rate_val = 0.0
+        short_rate_val = 0.0
+        format_suffix = ""
+
+        if self.rate_display_format == "percentage":
+            long_rate_val = rate.get("longRate_pct", 0.0)
+            short_rate_val = rate.get("shortRate_pct", 0.0)
+            format_suffix = "%"
+        elif self.rate_display_format == "basis_points":
+            long_rate_val = rate.get("longRate_bp", 0.0)
+            short_rate_val = rate.get("shortRate_bp", 0.0)
+            format_suffix = " bp"
+
         return [
             instrument,
             category,
             currency,
             str(rate.get("days", "")),
-            f"{float(rate.get('longRate_pct', 0.0)):.2f}%",
-            f"{float(rate.get('shortRate_pct', 0.0)):.2f}%",
+            f"{long_rate_val:.2f}{format_suffix}",
+            f"{short_rate_val:.2f}{format_suffix}",
             str(rate.get("longCharge", "")),
             str(rate.get("shortCharge", "")),
             str(rate.get("units", "")),

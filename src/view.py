@@ -252,6 +252,11 @@ class View(QMainWindow):
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
         self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
         self.export_btn.clicked.connect(self._presenter.on_export_data) # NEW
+        self.rate_format_combo.currentTextChanged.connect( # NEW
+            lambda text: self._presenter.on_rate_display_format_changed( # NEW
+                "percentage" if text == "Percentage (%)" else "basis_points" # NEW
+            ) # NEW
+        ) # NEW
 
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
@@ -346,6 +351,13 @@ class View(QMainWindow):
         )
         self.cancel_btn.setEnabled(False)  # Initially disabled
 
+        self.rate_format_combo = QComboBox() # NEW
+        self.rate_format_combo.addItems(["Percentage (%)", "Basis Points (bp)"]) # NEW
+        self.rate_format_combo.setAccessibleName("Rate Display Format") # NEW
+        self.rate_format_combo.setAccessibleDescription( # NEW
+            "Select the display format for financing rates (percentage or basis points)." # NEW
+        ) # NEW
+
         self.table = QTableWidget()
         self.table.setColumnCount(9)
         headers = [
@@ -394,6 +406,8 @@ class View(QMainWindow):
         control_layout.addWidget(self.clear_btn)
         control_layout.addWidget(self.update_btn)
         control_layout.addWidget(self.cancel_btn)
+        control_layout.addWidget(QLabel("FORMAT:")) # NEW
+        control_layout.addWidget(self.rate_format_combo) # NEW
 
         self.export_btn = QPushButton("Export to CSV")
         self.export_btn.setAccessibleName("Export to CSV Button")
@@ -410,7 +424,8 @@ class View(QMainWindow):
         self.setTabOrder(self.category_combo, self.clear_btn)
         self.setTabOrder(self.clear_btn, self.update_btn)
         self.setTabOrder(self.update_btn, self.cancel_btn)
-        self.setTabOrder(self.cancel_btn, self.export_btn) # NEW
+        self.setTabOrder(self.cancel_btn, self.rate_format_combo) # NEW
+        self.setTabOrder(self.rate_format_combo, self.export_btn) # NEW
         self.setTabOrder(self.export_btn, self.table)
 
     def _on_table_double_click(self, item):

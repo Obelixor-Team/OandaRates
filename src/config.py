@@ -189,6 +189,7 @@ DEFAULT_CONFIG = {
     },
     "ui": {
         "timer_interval": 16,
+        "rate_display_format": "percentage", # NEW: Default rate display format ('percentage' or 'basis_points')
     },
     "theme": {
         "background": "#0a0a12",
@@ -260,6 +261,12 @@ def _validate_config_types(config: Dict) -> None:
     if not isinstance(config["ui"]["timer_interval"], int):
         raise TypeError("Config error: ui.timer_interval must be an integer.")
 
+    # Validate ui.rate_display_format NEW
+    if not isinstance(config["ui"]["rate_display_format"], str):
+        raise TypeError("Config error: ui.rate_display_format must be a string.")
+    if config["ui"]["rate_display_format"] not in ["percentage", "basis_points"]:
+        raise ValueError("Config error: ui.rate_display_format must be 'percentage' or 'basis_points'.")
+
     if not isinstance(config["theme"]["plot_long_rate_color"], str):
         raise TypeError("Config error: theme.plot_long_rate_color must be a string.")
     if not isinstance(config["theme"]["plot_short_rate_color"], str):
@@ -291,6 +298,7 @@ def validate_config(config: Dict) -> None:
         "categories.bonds",
         "categories.currency_suffixes",
         "ui.timer_interval",
+        "ui.rate_display_format", # NEW
         "theme.background",
         "theme.text",
         "theme.positive",
