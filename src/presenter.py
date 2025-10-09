@@ -57,7 +57,6 @@ class Presenter:
             logger.info("Scheduler shut down.")
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
-        self.model.close()
         logger.info("Model database session closed.")
 
     def _queue_error(self, message: str) -> None:

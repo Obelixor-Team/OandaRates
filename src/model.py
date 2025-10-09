@@ -57,7 +57,7 @@ class Model:
 
     def close(self):
         """Closes the database session."""
-        self.session.close()
+        pass
 
     def categorize_instrument(self, instrument: str) -> str:
         """Categorizes an instrument into a specific group based on its name.
