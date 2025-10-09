@@ -9,7 +9,9 @@ from .presenter import Presenter
 from .view import View
 
 from typing import Optional, Tuple
-from .config import config  # Import config from config.py
+from .config import config, setup_logging  # Import config from config.py
+
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +67,8 @@ if __name__ == "__main__":
         view_instance, timer, presenter_instance = run_app(app)
         sys.exit(app.exec())
     except Exception:
-        logging.exception("Unhandled exception caught.")
-    finally:
-        if "presenter_instance" in locals() and presenter_instance:
-            presenter_instance.shutdown()
+        logging.exception("Unhandled exception")
         sys.exit(1)
+    finally:
+        if presenter_instance:
+            presenter_instance.shutdown()

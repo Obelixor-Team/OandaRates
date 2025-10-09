@@ -1,18 +1,11 @@
 import pytest
 from unittest.mock import MagicMock
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt  # Import Qt
 from PyQt6.QtGui import QColor
 
 from src.view import View
 from src.theme import THEME
-
-
-@pytest.fixture(scope="session")
-def app(request):
-    """Fixture for QApplication instance."""
-    _app = QApplication([])
-    yield _app
 
 
 @pytest.fixture
@@ -22,7 +15,7 @@ def mock_presenter():
 
 
 @pytest.fixture
-def view_instance(app, mock_presenter):
+def view_instance(qapp, mock_presenter):
     view = View(mock_presenter)
     view.set_presenter(mock_presenter)  # Explicitly call set_presenter
     view.show()
@@ -201,3 +194,17 @@ def test_progress_bar_visibility(view_instance):
 
     view_instance.hide_progress_bar()
     assert view_instance.progress_bar.isVisible() is False
+
+def test_clear_inputs(qtbot, view_instance):
+    view_instance.filter_input.setText("test")
+    view_instance.category_combo.setCurrentIndex(2)
+    view_instance.clear_inputs()
+    assert view_instance.filter_input.text() == ""
+    assert view_instance.category_combo.currentIndex() == 0
+
+def test_clear_inputs(qtbot, view_instance):
+    view_instance.filter_input.setText("test")
+    view_instance.category_combo.setCurrentIndex(2)
+    view_instance.clear_inputs()
+    assert view_instance.filter_input.text() == ""
+    assert view_instance.category_combo.currentIndex() == 0

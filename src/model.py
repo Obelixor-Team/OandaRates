@@ -42,7 +42,8 @@ class Model:
     def __init__(self):
         self.session = Session()
 
-    def __del__(self):
+    def close(self):
+        """Closes the database session."""
         self.session.close()
 
     def categorize_instrument(self, instrument: str) -> str:
@@ -97,7 +98,7 @@ class Model:
 
         return "Other"
 
-    def _infer_currency(self, instrument_name: str, api_currency: str) -> str:
+    def infer_currency(self, instrument_name: str, api_currency: str) -> str:
         """Infers the currency from the instrument name or falls back to API provided currency.
         Returns:
             str: The inferred currency.

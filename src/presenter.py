@@ -56,6 +56,8 @@ class Presenter:
             logger.info("Scheduler shut down.")
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
+        self.model.close()
+        logger.info("Model database session closed.")
 
     # --- Event Handlers (called by View) ---
 
@@ -77,10 +79,15 @@ class Presenter:
     def on_cancel_update(self):
         """Handle the 'Cancel Update' button click."""
         self._is_cancellation_requested = True
-        self.view.set_status(
-            "Cancellation requested. Waiting for current operation to finish..."
+        self.ui_update_queue.put(
+            {
+                "type": "status",
+                "payload": {
+                    "text": "Cancellation requested. Waiting for current operation to finish..."
+                },
+            }
         )
-        self.view.set_update_buttons_enabled(True)
+        self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
@@ -91,8 +98,14 @@ class Presenter:
             logger.warning(
                 f"Filter text exceeds maximum length of {MAX_FILTER_LENGTH} characters."
             )
-            self.view.set_status(
-                f"Filter text too long (max {MAX_FILTER_LENGTH} chars)", is_error=True
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {
+                        "text": f"Filter text too long (max {MAX_FILTER_LENGTH} chars)",
+                        "is_error": True,
+                    },
+                }
             )
             filter_text = filter_text[:MAX_FILTER_LENGTH]
         self.filter_text = filter_text.lower()
@@ -107,7 +120,7 @@ class Presenter:
         """Handle the 'Clear Filter' button click."""
         self.filter_text = ""
         self.selected_category = "All"
-        self.view.clear_inputs()
+        self.ui_update_queue.put({"type": "clear_inputs", "payload": {}})
         self._update_display()
 
     def on_instrument_double_clicked(self, instrument_name: str):
@@ -135,15 +148,30 @@ class Presenter:
         """
         if not isinstance(instrument_name, str) or not instrument_name.strip():
             logger.warning(f"Invalid instrument_name: '{instrument_name}'")
-            self.view.set_status("Invalid instrument name provided.", is_error=True)
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {"text": "Invalid instrument name provided.", "is_error": True},
+                }
+            )
             return
 
-        self.view.set_status(f"Loading history for {instrument_name}...")
+        self.ui_update_queue.put(
+            {
+                "type": "status",
+                "payload": {"text": f"Loading history for {instrument_name}..."},
+            }
+        )
         history_df = self.model.get_instrument_history(instrument_name)
         if history_df.empty:
-            self.view.set_status(
-                f"No history found for {instrument_name}",
-                is_error=True,
+            self.ui_update_queue.put(
+                {
+                    "type": "status",
+                    "payload": {
+                        "text": f"No history found for {instrument_name}",
+                        "is_error": True,
+                    },
+                }
             )
             return
 
@@ -181,8 +209,19 @@ class Presenter:
             stats["Avg Daily Change Long Rate"] = 0.0
             stats["Avg Daily Change Short Rate"] = 0.0
 
-        self.view.show_history_window(instrument_name, history_df, stats)
-        self.view.set_status("History window displayed.")
+        self.ui_update_queue.put(
+            {
+                "type": "show_history_window",
+                "payload": {
+                    "instrument_name": instrument_name,
+                    "history_df": history_df,
+                    "stats": stats,
+                },
+            }
+        )
+        self.ui_update_queue.put(
+            {"type": "status", "payload": {"text": "History window displayed."}}
+        )
 
     # --- Core Logic (UI-Thread Safe) ---
 
@@ -252,7 +291,7 @@ class Presenter:
                 if msg_type == "status":
                     self.view.set_status(
                         payload.get("text"),
-                        payload.get("is_error", False),
+                        is_error=payload.get("is_error", False),
                     )
                 elif msg_type == "data":
                     self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
@@ -270,6 +309,18 @@ class Presenter:
                     self.view.show_progress_bar()
                 elif msg_type == "hide_progress":
                     self.view.hide_progress_bar()
+                elif msg_type == "set_buttons_enabled":
+                    self.view.set_update_buttons_enabled(payload["enabled"])
+                elif msg_type == "clear_inputs":
+                    self.view.clear_inputs()
+                elif msg_type == "show_history_window":
+                    self.view.show_history_window(
+                        payload["instrument_name"],
+                        payload["history_df"],
+                        payload["stats"],
+                    )
+                elif msg_type == "update_table":
+                    self.view.update_table(payload["data"])
 
         except queue.Empty:
             pass
@@ -292,8 +343,7 @@ class Presenter:
         """
 
         if not self.raw_data or "financingRates" not in self.raw_data:
-            self.view.update_table([])
-
+            self.ui_update_queue.put({"type": "update_table", "payload": {"data": []}})
             return
 
         filtered_data = []
@@ -305,7 +355,7 @@ class Presenter:
             if self.filter_text and self.filter_text not in instrument.lower():
                 continue
 
-            currency = self.model._infer_currency(instrument, rate.get("currency", ""))
+            currency = self.model.infer_currency(instrument, rate.get("currency", ""))
 
             row_data = [
                 instrument,
@@ -320,9 +370,16 @@ class Presenter:
             ]
             filtered_data.append(row_data)
 
-        self.view.update_table(filtered_data)
-        self.view.set_status(
-            f"Display updated. Showing {len(filtered_data)} instruments."
+        self.ui_update_queue.put(
+            {"type": "update_table", "payload": {"data": filtered_data}}
+        )
+        self.ui_update_queue.put(
+            {
+                "type": "status",
+                "payload": {
+                    "text": f"Display updated. Showing {len(filtered_data)} instruments."
+                },
+            }
         )
 
     # --- Background Jobs (Worker Threads) ---
@@ -392,7 +449,7 @@ class Presenter:
                 }
             )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.view.set_update_buttons_enabled(True)
+            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
             return
 
         if is_initial:
@@ -427,7 +484,7 @@ class Presenter:
                     }
                 )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.view.set_update_buttons_enabled(True)
+            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
         elif source == "scheduled" or source == "initial":
             new_data = self.model.fetch_and_save_rates(save_to_db=True)
             if new_data:
@@ -451,7 +508,7 @@ class Presenter:
                     }
                 )
             self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.view.set_update_buttons_enabled(True)
+            self.ui_update_queue.put({"type": "set_buttons_enabled", "payload": {"enabled": True}})
 
         if new_data:
             self.ui_update_queue.put({"type": "data", "payload": new_data})

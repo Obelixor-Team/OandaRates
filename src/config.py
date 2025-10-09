@@ -12,13 +12,15 @@ def setup_logging():
         logging, log_level_str, logging.INFO
     )  # Default to INFO if not found
 
+    from logging.handlers import RotatingFileHandler
+
+    handler = RotatingFileHandler(
+        config["logging"]["file_path"], maxBytes=1_000_000, backupCount=3
+    )
     logging.basicConfig(
         level=log_level,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[
-            logging.FileHandler(config["logging"]["file_path"]),
-            logging.StreamHandler(),
-        ],
+        handlers=[handler, logging.StreamHandler()],
     )
 
 
@@ -152,6 +154,8 @@ DEFAULT_CONFIG = {
         "input_background": "#1a1a2e",
         "input_border": "#2a2a3e",
         "status_text": "#a0a0b0",
+        "plot_long_rate_color": "#00ff9d",
+        "plot_short_rate_color": "#ff5555",
     },
     "logging": {"level": "INFO", "file_path": "oanda_terminal.log"},
 }
@@ -254,10 +258,10 @@ def _deep_merge(base, new):
 def load_config() -> Dict:
     try:
         with open("config.yaml", "r") as f:
-            config = yaml.safe_load(f)
+            config_from_file = yaml.safe_load(f) or {}
             # Merge with default config to ensure all keys are present
             merged_config = DEFAULT_CONFIG.copy()
-            _deep_merge(merged_config, config)
+            _deep_merge(merged_config, config_from_file)
             validate_config(merged_config)
         return merged_config
     except (FileNotFoundError, yaml.YAMLError) as e:
@@ -267,4 +271,3 @@ def load_config() -> Dict:
 
 
 config = load_config()
-setup_logging()

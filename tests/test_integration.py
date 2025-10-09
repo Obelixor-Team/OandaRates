@@ -3,6 +3,8 @@ from unittest.mock import MagicMock, patch
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt  # Import Qt
 from src.main import run_app
+import sys
+import os
 
 # Mock the config object for Model initialization
 MOCK_CONFIG = {
@@ -19,14 +21,6 @@ MOCK_CONFIG = {
         "bonds": [],
     },
 }
-
-
-@pytest.fixture(scope="session")
-def app(request):
-    """Fixture for QApplication instance."""
-    _app = QApplication([])
-    yield _app
-    _app.quit()
 
 
 @pytest.fixture
@@ -52,10 +46,10 @@ def mock_model():
 
 
 @pytest.fixture
-def main_window(app, mock_model):
+def main_window(qapp, mock_model):
     with patch("src.model.Model", return_value=mock_model):
         mock_presenter_instance = MagicMock()
-        view, timer, presenter = run_app(app, mock_presenter=mock_presenter_instance)
+        view, timer, presenter = run_app(qapp, mock_presenter=mock_presenter_instance)
         yield view, presenter
 
 
@@ -82,3 +76,17 @@ def test_manual_update_flow(main_window, mock_model, qtbot):
     #     ['EUR_USD', 'Forex', 'USD', 1, '1.00%', '-2.00%', '', '', ''],
     # ]
     # main_window.update_table.assert_called_with(expected_data)
+
+def test_app_starts_headless_without_exception(qapp, mock_model):
+    os.environ["QT_QPA_PLATFORM"] = "offscreen"
+    try:
+        with patch("src.model.Model", return_value=mock_model):
+            view, timer, presenter = run_app(qapp)
+            # Give the app a moment to process events if any
+            qapp.processEvents()
+            presenter.shutdown()
+            view.close()
+    except Exception as e:
+        pytest.fail(f"Application raised an exception in headless mode: {e}")
+    finally:
+        del os.environ["QT_QPA_PLATFORM"]

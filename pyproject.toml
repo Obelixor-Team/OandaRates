@@ -74,3 +74,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = "apscheduler.*"
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
