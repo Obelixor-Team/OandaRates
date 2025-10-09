@@ -64,6 +64,34 @@ class Model:
         """Dispose of the database engine."""
         self.engine.dispose()
 
+    def _query_all_rates_ordered(self, ascending: bool = True) -> list[Dict[str, Any]]:
+        """Query all rates ordered by date, returning their date and raw data.
+        
+        Args:
+            ascending: If True, order ascending; else descending
+            
+        Returns:
+            List of dictionaries, each with 'date' and 'raw_data'
+        """
+        with self.get_session() as session:
+            order = Rate.date.asc() if ascending else Rate.date.desc()
+            rates = session.query(Rate).order_by(order).all()
+            return [{"date": rate.date, "raw_data": rate.raw_data} for rate in rates]
+
+    def _query_latest_rate(self) -> Optional[Dict[str, Any]]:
+        """Query the most recent rate entry and return its raw data and date.
+        
+        Returns:
+            Dictionary with 'date' and 'raw_data' or None
+        """
+        with self.get_session() as session:
+            rate = session.query(Rate).order_by(Rate.date.desc()).first()
+            if rate:
+                return {"date": rate.date, "raw_data": rate.raw_data}
+            return None
+
+
+
     def categorize_instrument(self, instrument: str) -> str:
         """Categorizes an instrument into a specific group based on its name.
 
@@ -223,82 +251,42 @@ class Model:
             return None
 
     def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
-        """Load the most recent financing rates from the database.
-
-        Returns:
-            tuple[Optional[str], Optional[Dict]]: (date, data) or (None, None) if no data is found.
-
-        Raises:
-            sqlalchemy.exc.SQLAlchemyError: If database query fails.
-
-        Example:
-            >>> model = Model()
-            >>> # Assuming there is some data in the database
-            >>> date, rates_data = model.get_latest_rates()
-            >>> if date and rates_data:
-            ...     print(f"Latest rates on {date}: {rates_data['financingRates'][0]['instrument']}")
-            # Output might look like:
-            # Latest rates on 2023-10-27: EUR_USD
-        """
-        with self.get_session() as session:
-            rate = session.query(Rate).order_by(Rate.date.desc()).first()
-            if rate:
-                try:
-                    return str(rate.date), json.loads(rate.raw_data)
-                except json.JSONDecodeError as e:
-                    logger.error(f"Failed to parse latest rate data: {e}")
-                    return None, None
-            return None, None
+        """Load the most recent financing rates from the database."""
+        rate_data = self._query_latest_rate() # This now returns a dict or None
+        
+        if rate_data:
+            date = rate_data["date"]
+            raw_data_str = rate_data["raw_data"]
+            try:
+                data = json.loads(raw_data_str)
+                return date, data
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON for rate on {date}: {e}")
+                return None, None
+        
+        return None, None
 
     @functools.lru_cache(maxsize=128)
     def get_instrument_history(self, instrument_name: str) -> pd.DataFrame:
-        """Retrieve the historical long and short rates for a specific instrument.
-
-        This method queries the database for all historical rate entries and
-        filters them to extract the long and short rates for the specified
-        instrument. The results are returned as a pandas DataFrame.
-        The results are cached using `functools.lru_cache` for performance.
-
-        Args:
-            instrument_name: The name of the instrument (e.g., "EUR_USD").
-
-        Returns:
-            pd.DataFrame: A DataFrame with columns "date", "long_rate", and "short_rate".
-            Returns an empty DataFrame if no history is found for the instrument.
-
-        Raises:
-            sqlalchemy.exc.SQLAlchemyError: If database query fails.
-
-        Example:
-            >>> model = Model()
-            >>> # Assuming some data is in the database for "EUR_USD"
-            >>> history_df = model.get_instrument_history("EUR_USD")
-            >>> if not history_df.empty:
-            ...     print(history_df.head())
-            # Output might look like:
-            #          date  long_rate  short_rate
-            # 0  2023-01-01       0.01       -0.02
-            # 1  2023-01-02      0.015      -0.025
-        """
+        """Retrieve the historical long and short rates for a specific instrument."""
         history = []
-        with self.get_session() as session:
-            rates: list[Rate] = session.query(Rate).order_by(Rate.date.asc()).all()
-            for rate_entry in rates:
-                try:
-                    data = json.loads(str(rate_entry.raw_data))
-                except json.JSONDecodeError as e:
-                    logger.error(
-                        f"Failed to parse JSON for rate on {rate_entry.date}: {e}"
-                    )
-                    continue  # Skip this entry and continue with the next
-
-                for instrument_data in data.get("financingRates", []):
-                    if instrument_data.get("instrument") == instrument_name:
-                        history.append(
-                            {
-                                "date": rate_entry.date,
-                                "long_rate": instrument_data.get("longRate"),
-                                "short_rate": instrument_data.get("shortRate"),
-                            }
-                        )
+        rates_data = self._query_all_rates_ordered(ascending=True) # This now returns list of dicts
+        
+        for rate_entry_data in rates_data:
+            date = rate_entry_data["date"]
+            raw_data_str = rate_entry_data["raw_data"]
+            try:
+                data = json.loads(raw_data_str)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON for rate on {date}: {e}")
+                continue
+            
+            for instrument_data in data.get("financingRates", []):
+                if instrument_data.get("instrument") == instrument_name:
+                    history.append({
+                        "date": date,
+                        "long_rate": instrument_data.get("longRate"),
+                        "short_rate": instrument_data.get("shortRate"),
+                    })
+        
         return pd.DataFrame(history)

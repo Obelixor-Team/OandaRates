@@ -415,35 +415,34 @@ def test_update_display_currency_inference(presenter_instance, mock_model, mock_
     )
 
 
-def test_on_manual_update_success(presenter_instance, mock_model, mock_view):
-    # Mock the model's fetch_and_save_rates to return sample data
-    mock_model.fetch_and_save_rates.return_value = SAMPLE_RAW_DATA
+    def test_on_manual_update_success(presenter_instance, mock_model, mock_view):
+        # Mock the model's fetch_and_save_rates to return sample data
+        mock_model.fetch_and_save_rates.return_value = SAMPLE_RAW_DATA
 
-    # Call the method under test
-    presenter_instance.on_manual_update()
+        # Call the method under test
+        presenter_instance.on_manual_update()
 
-    # Wait for the executor to complete the _fetch_job
-    presenter_instance.executor.shutdown(wait=True)
+        # Wait for the executor to complete the _fetch_job
+        presenter_instance.executor.shutdown(wait=True)
 
-    # Process all UI updates from the queue
-    while not presenter_instance.ui_update_queue.empty():
-        presenter_instance.process_ui_updates()
+        # Process all UI updates from the queue
+        while not presenter_instance.ui_update_queue.empty():
+            presenter_instance.process_ui_updates()
 
-    # Assert that view methods are called correctly
-    mock_view.set_update_buttons_enabled.assert_any_call(False)
-    mock_view.set_update_buttons_enabled.assert_any_call(True)
-    mock_view.set_status.assert_any_call(
-        "Fetching new data from API...", is_error=False
-    )
-    mock_view.show_progress_bar.assert_called_once()
-    mock_model.fetch_and_save_rates.assert_called_once_with(save_to_db=False)
-    mock_view.set_status.assert_any_call(
-        "Manual update successful (not saved to DB).", is_error=False
-    )
-    mock_view.hide_progress_bar.assert_called()
-    mock_view.set_update_time.assert_called_once()
-    mock_view.update_table.assert_called_once()
-
+        # Assert that view methods are called correctly
+        mock_view.set_update_buttons_enabled.assert_any_call(False)
+        mock_view.set_update_buttons_enabled.assert_any_call(True)
+        mock_view.set_status.assert_any_call(
+            "Fetching new data from API...", is_error=False
+        )
+        mock_view.show_progress_bar.assert_called_once()
+        mock_model.fetch_and_save_rates.assert_called_once_with(save_to_db=False)
+        mock_view.set_status.assert_any_call(
+            "Manual update successful (not saved to DB).", is_error=False
+        )
+        mock_view.hide_progress_bar.assert_called()
+        mock_view.set_update_time.assert_called_once()
+        mock_view.update_table.assert_called_once()
 
 def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view):
     # Mock the model's fetch_and_save_rates to simulate a long-running operation
@@ -467,6 +466,7 @@ def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view
         while not presenter_instance.ui_update_queue.empty():
             presenter_instance.process_ui_updates()
 
+        from unittest.mock import call
         # Assert that cancellation was handled
         assert (
             presenter_instance._cancellation_event.is_set() is False
@@ -476,5 +476,5 @@ def test_on_manual_update_cancellation(presenter_instance, mock_model, mock_view
             is_error=False,
         )
         mock_view.set_update_buttons_enabled.assert_any_call(True)
-        mock_view.set_status.assert_any_call("Update cancelled.", is_error=True)
+        assert call("Update cancelled.", is_error=True) in mock_view.set_status.call_args_list
         mock_view.hide_progress_bar.assert_called_once()

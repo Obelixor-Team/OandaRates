@@ -65,6 +65,75 @@ class Presenter:
             {"type": "status", "payload": {"text": message, "is_error": False}}
         )
 
+    def _queue_show_progress(self) -> None:
+        """Show progress bar via queue."""
+        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
+
+    def _queue_hide_progress(self) -> None:
+        """Hide progress bar via queue."""
+        self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+
+    def _queue_enable_buttons(self, enabled: bool = True) -> None:
+        """Enable/disable update buttons via queue."""
+        self.ui_update_queue.put(
+            {"type": "set_buttons_enabled", "payload": {"enabled": enabled}}
+        )
+
+    def _queue_update_table(self, data: list) -> None:
+        """Update table data via queue."""
+        self.ui_update_queue.put({"type": "update_table", "payload": {"data": data}})
+
+    def _queue_clear_inputs(self) -> None:
+        """Clear input fields via queue."""
+        self.ui_update_queue.put({"type": "clear_inputs", "payload": {}})
+
+    def _calculate_rate_statistics(
+        self, 
+        series: pd.Series, 
+        rate_type: str
+    ) -> Dict[str, float]:
+        """Calculate statistical measures for a rate series.
+        
+        Args:
+            series: Pandas series containing rate data
+            rate_type: Type of rate ("Long" or "Short")
+            
+        Returns:
+            Dictionary of statistics
+        """
+        return {
+            f"Mean {rate_type} Rate": series.mean(),
+            f"Median {rate_type} Rate": series.median(),
+            f"Std Dev {rate_type} Rate": series.std(),
+            f"Min {rate_type} Rate": series.min(),
+            f"Max {rate_type} Rate": series.max(),
+        }
+
+    def _calculate_daily_change_stats(
+        self, 
+        history_df: pd.DataFrame
+    ) -> Dict[str, float]:
+        """Calculate average daily change statistics.
+        
+        Args:
+            history_df: DataFrame with 'long_rate' and 'short_rate' columns
+            
+        Returns:
+            Dictionary with daily change statistics
+        """
+        if len(history_df) > 1:
+            history_df = history_df.copy()  # Avoid modifying original
+            history_df["long_rate_diff"] = history_df["long_rate"].diff().abs()
+            history_df["short_rate_diff"] = history_df["short_rate"].diff().abs()
+            return {
+                "Avg Daily Change Long Rate": history_df["long_rate_diff"].mean(),
+                "Avg Daily Change Short Rate": history_df["short_rate_diff"].mean(),
+            }
+        return {
+            "Avg Daily Change Long Rate": 0.0,
+            "Avg Daily Change Short Rate": 0.0,
+        }
+
     # --- Event Handlers (called by View) ---
 
     def on_app_start(self):
@@ -75,9 +144,9 @@ class Presenter:
     def on_manual_update(self):
         """Handle the 'Manual Update' button click."""
         self._cancellation_event.clear()
-        self.view.set_update_buttons_enabled(False)
+        self._queue_enable_buttons(False)
         self._queue_status("Fetching new data from API...")
-        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
+        self._queue_show_progress()
         self.executor.submit(self._fetch_job, "manual")
 
     def on_cancel_update(self):
@@ -86,9 +155,7 @@ class Presenter:
         self._queue_status(
             "Cancellation requested. Waiting for current operation to finish..."
         )
-        self.ui_update_queue.put(
-            {"type": "set_buttons_enabled", "payload": {"enabled": True}}
-        )
+        self._queue_enable_buttons(True)
 
     def on_filter_text_changed(self, filter_text: str):
         """Handle changes in the filter input text."""
@@ -113,32 +180,11 @@ class Presenter:
         """Handle the 'Clear Filter' button click."""
         self.filter_text = ""
         self.selected_category = "All"
-        self.ui_update_queue.put({"type": "clear_inputs", "payload": {}})
+        self._queue_clear_inputs()
         self._update_display()
 
     def on_instrument_double_clicked(self, instrument_name: str):
-        """Handle a double-click event on the table to show history.
-
-        This method is called when a user double-clicks on an instrument in the
-        main table. It retrieves the historical data for the selected instrument
-        from the model, calculates statistics, and then displays the history
-        in a new dialog window.
-
-        Args:
-            instrument_name: The name of the instrument that was double-clicked.
-
-        Example:
-            >>> # This method is typically connected to a GUI event signal.
-            >>> # In the View class:
-            >>> # self.table.itemDoubleClicked.connect(self._on_table_double_click)
-            >>> # def _on_table_double_click(self, item):
-            ... #     instrument_name = self.table.item(item.row(), 0).text()
-            ... #     self._presenter.on_instrument_double_clicked(instrument_name)
-            >>>
-            >>> # Direct call for testing:
-            >>> presenter.on_instrument_double_clicked("EUR_USD")
-            # This would trigger the history window to be displayed for EUR_USD.
-        """
+        """Handle a double-click event on the table to show history."""
         if not isinstance(instrument_name, str) or not instrument_name.strip():
             logger.warning(f"Invalid instrument_name: '{instrument_name}'")
             self._queue_error("Invalid instrument name provided.")
@@ -146,54 +192,29 @@ class Presenter:
 
         self._queue_status(f"Loading history for {instrument_name}...")
         history_df = self.model.get_instrument_history(instrument_name)
+        
         if history_df.empty:
             self._queue_error(f"No history found for {instrument_name}")
             return
 
         # Convert data to numeric before calculating stats
-        history_df["long_rate"] = pd.to_numeric(
-            history_df["long_rate"],
-            errors="coerce",
-        )
-        history_df["short_rate"] = pd.to_numeric(
-            history_df["short_rate"],
-            errors="coerce",
-        )
+        history_df["long_rate"] = pd.to_numeric(history_df["long_rate"], errors="coerce")
+        history_df["short_rate"] = pd.to_numeric(history_df["short_rate"], errors="coerce")
 
-        # Calculate stats
-        stats = {
-            "Mean Long Rate": history_df["long_rate"].mean(),
-            "Median Long Rate": history_df["long_rate"].median(),
-            "Std Dev Long Rate": history_df["long_rate"].std(),
-            "Min Long Rate": history_df["long_rate"].min(),
-            "Max Long Rate": history_df["long_rate"].max(),
-            "Mean Short Rate": history_df["short_rate"].mean(),
-            "Median Short Rate": history_df["short_rate"].median(),
-            "Std Dev Short Rate": history_df["short_rate"].std(),
-            "Min Short Rate": history_df["short_rate"].min(),
-            "Max Short Rate": history_df["short_rate"].max(),
-        }
+        # Calculate statistics
+        stats = {}
+        stats.update(self._calculate_rate_statistics(history_df["long_rate"], "Long"))
+        stats.update(self._calculate_rate_statistics(history_df["short_rate"], "Short"))
+        stats.update(self._calculate_daily_change_stats(history_df))
 
-        # Calculate daily changes and their averages
-        if len(history_df) > 1:
-            history_df["long_rate_diff"] = history_df["long_rate"].diff().abs()
-            history_df["short_rate_diff"] = history_df["short_rate"].diff().abs()
-            stats["Avg Daily Change Long Rate"] = history_df["long_rate_diff"].mean()
-            stats["Avg Daily Change Short Rate"] = history_df["short_rate_diff"].mean()
-        else:
-            stats["Avg Daily Change Long Rate"] = 0.0
-            stats["Avg Daily Change Short Rate"] = 0.0
-
-        self.ui_update_queue.put(
-            {
-                "type": "show_history_window",
-                "payload": {
-                    "instrument_name": instrument_name,
-                    "history_df": history_df,
-                    "stats": stats,
-                },
-            }
-        )
+        self.ui_update_queue.put({
+            "type": "show_history_window",
+            "payload": {
+                "instrument_name": instrument_name,
+                "history_df": history_df,
+                "stats": stats,
+            },
+        })
         self._queue_status("History window displayed.")
 
     # --- Core Logic (UI-Thread Safe) ---
@@ -267,13 +288,13 @@ class Presenter:
                         is_error=payload.get("is_error", False),
                     )
                 elif msg_type == "data":
-                    self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+                    self._queue_hide_progress()
                     self.raw_data = self._process_and_cache_data(payload)
                     self.latest_date = datetime.now().strftime("%Y-%m-%d")
                     self.view.set_update_time(self.latest_date)
                     self._update_display()
                 elif msg_type == "initial_data":
-                    self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
+                    self._queue_hide_progress()
                     self.latest_date, raw_data = payload
                     self.raw_data = self._process_and_cache_data(raw_data)
                     self.view.set_update_time(self.latest_date or "NEVER")
@@ -316,7 +337,7 @@ class Presenter:
         """
 
         if not self.raw_data or "financingRates" not in self.raw_data:
-            self.ui_update_queue.put({"type": "update_table", "payload": {"data": []}})
+            self._queue_update_table(data=[])
             return
 
         filtered_data = []
@@ -355,9 +376,7 @@ class Presenter:
                 logger.warning(f"Error processing rate for {instrument}: {e}")
                 continue
 
-        self.ui_update_queue.put(
-            {"type": "update_table", "payload": {"data": filtered_data}}
-        )
+        self._queue_update_table(data=filtered_data)
         self._queue_status(
             f"Display updated. Showing {len(filtered_data)} instruments."
         )
@@ -380,7 +399,7 @@ class Presenter:
             # Expected: UI is updated with progress, status messages, and eventually
             # the main table is populated with data from DB or API.
         """
-        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
+        self._queue_show_progress()
         self._queue_status("Loading latest data from database...")
         date, data = self.model.get_latest_rates()
         if data:
@@ -391,64 +410,13 @@ class Presenter:
             self._fetch_job(source="initial", is_initial=True)
 
     def _fetch_job(self, source: str = "manual", is_initial: bool = False):
-        """Fetch new data from the API.
-
-        This method is responsible for making the API call to OANDA to get
-        the latest financing rates. It handles different sources (manual,
-        scheduled, initial load) and updates the UI with status messages
-        and progress indicators. It also handles cancellation requests.
-
-        Args:
-            source: The source of the fetch request (e.g., "manual", "scheduled", "initial").
-            is_initial: A boolean indicating if this is part of the initial data load.
-
-        Example:
-            >>> # Manual fetch:
-            >>> # presenter.executor.submit(presenter._fetch_job, source="manual")
-            >>> # Scheduled fetch:
-            >>> # presenter.executor.submit(presenter._fetch_job, source="scheduled")
-            >>> # Initial fetch (if no DB data):
-            >>> # presenter.executor.submit(presenter._fetch_job, source="initial", is_initial=True)
-            # Expected: UI is updated with fetch status, progress, and new data if successful.
-        """
+        """Fetch new data from the API."""
         if self._cancellation_event.is_set():
             self._cancellation_event.clear()
             self._queue_error("Update cancelled.")
-            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put(
-                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
-            )
+            self._queue_hide_progress()
+            self._queue_enable_buttons(True)
             return
-
-        if is_initial:
-            self._queue_status("No local data. Fetching from API...")
-
-        new_data = None
-        if source == "manual":
-            new_data = self.model.fetch_and_save_rates(save_to_db=False)
-            if new_data:
-                self._queue_status("Manual update successful (not saved to DB).")
-            else:
-                self._queue_error(
-                    "Manual update failed. Please try again or check API connectivity."
-                )
-            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put(
-                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
-            )
-        elif source == "scheduled" or source == "initial":
-            new_data = self.model.fetch_and_save_rates(save_to_db=True)
-            if new_data:
-                self._queue_status("API fetch successful and saved to database.")
-            else:
-                self._queue_error("API fetch failed. Please check API connectivity.")
-            self.ui_update_queue.put({"type": "hide_progress", "payload": {}})
-            self.ui_update_queue.put(
-                {"type": "set_buttons_enabled", "payload": {"enabled": True}}
-            )
-
-        if new_data:
-            self.ui_update_queue.put({"type": "data", "payload": new_data})
 
     # --- Scheduler Logic ---
 
@@ -466,6 +434,6 @@ class Presenter:
 
     def _scheduled_update_job(self):
         """Perform the scheduled update job."""
-        self.ui_update_queue.put({"type": "show_progress", "payload": {}})
+        self._queue_show_progress()
         self._queue_status("Performing scheduled update...")
         self._fetch_job(source="scheduled")
