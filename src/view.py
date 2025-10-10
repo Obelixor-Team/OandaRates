@@ -78,15 +78,13 @@ class HistoryDialog(QDialog):
 
     def __init__(self, instrument_name, history_df, stats, parent=None):
         super().__init__(parent)
-        self.instrument_name = instrument_name # NEW
-        self.history_df = history_df # NEW
         self.setWindowTitle(f"History for {instrument_name}")
 
         layout = QVBoxLayout()
 
         # Stats Layout
         stats_layout = QHBoxLayout()
-        long_stats_text, short_stats_text = self._format_stats_text(stats, history_df) # NEW: Pass history_df
+        long_stats_text, short_stats_text = self._format_stats_text(stats)
 
         long_stats_label = QLabel(long_stats_text)
         short_stats_label = QLabel(short_stats_text)
@@ -100,44 +98,12 @@ class HistoryDialog(QDialog):
             plot_canvas = self._create_plot_canvas(history_df)
             layout.addWidget(plot_canvas)
 
-        # Export Button
-        export_btn = QPushButton("Export to CSV") # NEW
-        export_btn.clicked.connect(self._export_history_to_csv) # NEW
-        layout.addWidget(export_btn) # NEW
-
         self.setLayout(layout)
         self.resize(self.sizeHint())
 
-    def _export_history_to_csv(self) -> None: # NEW
-        default_filename = f"{self.instrument_name}_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv" # NEW
-        file_path, _ = QFileDialog.getSaveFileName( # NEW
-            self, # NEW
-            "Export History to CSV", # NEW
-            default_filename, # NEW
-            "CSV Files (*.csv);;All Files (*)", # NEW
-        ) # NEW
-        if file_path: # NEW
-            try: # NEW
-                self.history_df.to_csv(file_path, index=False) # NEW
-                # In a dialog, we might not have a status bar, so a message box or log is appropriate
-                logger.info(f"History exported to {file_path}") # NEW
-            except Exception as e: # NEW
-                logger.error(f"Error exporting history to CSV: {e}") # NEW
-        else: # NEW
-            logger.info("History export cancelled.") # NEW
 
-    def _format_stats_text(self, stats: Dict[str, float], history_df: pd.DataFrame) -> tuple[str, str]: # NEW: Add history_df parameter
-        # Add summary info
-        summary_text = f"Data Points: {len(history_df)}\n" # NEW
-        if not history_df.empty: # NEW
-            min_date = history_df["date"].min() # NEW
-            max_date = history_df["date"].max() # NEW
-            summary_text += f"Date Range: {min_date} to {max_date}\n\n" # NEW
-        else: # NEW
-            summary_text += "Date Range: N/A\n\n" # NEW
 
-        long_stats_text = summary_text + "Long Rates:\n" # NEW
-        short_stats_text = summary_text + "Short Rates:\n" # NEW
+    def _format_stats_text(self, stats: Dict[str, float]) -> tuple[str, str]:
         """Format statistics into long and short rate text sections.
 
         Args:
@@ -288,11 +254,6 @@ class View(QMainWindow):
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
         self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
         self.export_btn.clicked.connect(self._presenter.on_export_data) # NEW
-        self.rate_format_combo.currentTextChanged.connect( # NEW
-            lambda text: self._presenter.on_rate_display_format_changed( # NEW
-                "percentage" if text == "Percentage (%)" else "basis_points" # NEW
-            ) # NEW
-        ) # NEW
 
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
@@ -387,13 +348,6 @@ class View(QMainWindow):
         )
         self.cancel_btn.setEnabled(False)  # Initially disabled
 
-        self.rate_format_combo = QComboBox() # NEW
-        self.rate_format_combo.addItems(["Percentage (%)", "Basis Points (bp)"]) # NEW
-        self.rate_format_combo.setAccessibleName("Rate Display Format") # NEW
-        self.rate_format_combo.setAccessibleDescription( # NEW
-            "Select the display format for financing rates (percentage or basis points)." # NEW
-        ) # NEW
-
         self.table = QTableWidget()
         self.table.setColumnCount(9)
         headers = [
@@ -442,8 +396,6 @@ class View(QMainWindow):
         control_layout.addWidget(self.clear_btn)
         control_layout.addWidget(self.update_btn)
         control_layout.addWidget(self.cancel_btn)
-        control_layout.addWidget(QLabel("FORMAT:")) # NEW
-        control_layout.addWidget(self.rate_format_combo) # NEW
 
         self.export_btn = QPushButton("Export to CSV")
         self.export_btn.setAccessibleName("Export to CSV Button")
@@ -460,8 +412,7 @@ class View(QMainWindow):
         self.setTabOrder(self.category_combo, self.clear_btn)
         self.setTabOrder(self.clear_btn, self.update_btn)
         self.setTabOrder(self.update_btn, self.cancel_btn)
-        self.setTabOrder(self.cancel_btn, self.rate_format_combo) # NEW
-        self.setTabOrder(self.rate_format_combo, self.export_btn) # NEW
+        self.setTabOrder(self.cancel_btn, self.export_btn) # NEW
         self.setTabOrder(self.export_btn, self.table)
 
     def _on_table_double_click(self, item):
@@ -666,14 +617,11 @@ class View(QMainWindow):
         Returns:
             Optional[str]: The absolute path to the selected file, or None if the dialog was cancelled.
         """
-        options = QFileDialog.Options()
-        # options |= QFileDialog.Option.DontUseNativeDialog # Uncomment for non-native dialog
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Data to CSV",
             default_filename,
             "CSV Files (*.csv);;All Files (*)",
-            options=options,
         )
         return file_path if file_path else None
 
