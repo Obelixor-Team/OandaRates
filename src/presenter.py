@@ -535,21 +535,7 @@ class Presenter:
     # --- Background Jobs (Worker Threads) ---
 
     def _initial_load_job(self):
-        """Load initial data from DB or API.
-
-        This method is executed in a background thread upon application start.
-        It first attempts to load the latest rates from the local database.
-        If no data is found in the database, it then triggers a fetch from the
-        OANDA API and saves it to the database.
-
-        Example:
-            >>> # This method is typically called by on_app_start:
-            >>> # presenter.executor.submit(presenter._initial_load_job)
-            >>> # Direct call for testing (requires mocking queue and model interactions):
-            >>> # presenter._initial_load_job()
-            # Expected: UI is updated with progress, status messages, and eventually
-            # the main table is populated with data from DB or API.
-        """
+        """Load initial data from DB or API."""
         self._queue_show_progress()
         self._queue_status("Loading latest data from database...")
         try:
@@ -560,14 +546,15 @@ class Presenter:
                 )
                 self._queue_status("Data loaded successfully.")
             else:
-                self._fetch_job(source="initial", is_initial=True)
+                # If no data in DB, fetch from API but DO NOT save to DB
+                self._fetch_job(source="initial", is_initial=True, save_to_db_override=False)
         except Exception as e:
             logger.exception("Error during initial data load from database.")
             self._queue_error(f"Failed to load initial data: {e}")
             self._queue_hide_progress()
             self._queue_enable_buttons(True)
 
-    def _fetch_job(self, source: str = "manual", is_initial: bool = False):
+    def _fetch_job(self, source: str = "manual", is_initial: bool = False, save_to_db_override: Optional[bool] = None):
         """Fetch new data from the API."""
         if self._cancellation_event.is_set():
             self._cancellation_event.clear()
@@ -581,22 +568,22 @@ class Presenter:
 
         new_data = None
         try:
-            if source == "manual":
-                new_data = self.model.fetch_and_save_rates(save_to_db=False)
-                if new_data:
-                    self._queue_status("Manual update successful (not saved to DB).")
-                else:
-                    self._queue_error(
-                        "Manual update failed. Please try again or check API connectivity."
-                    )
-            elif source == "scheduled" or source == "initial":
-                new_data = self.model.fetch_and_save_rates(save_to_db=True)
-                if new_data:
+            save_to_db = True # Default behavior
+            if save_to_db_override is not None:
+                save_to_db = save_to_db_override
+            elif source == "manual":
+                save_to_db = False # Manual updates do not save to DB
+
+            new_data = self.model.fetch_and_save_rates(save_to_db=save_to_db)
+            if new_data:
+                if save_to_db:
                     self._queue_status("API fetch successful and saved to database.")
                 else:
-                    self._queue_error(
-                        "API fetch failed. Please check API connectivity."
-                    )
+                    self._queue_status("API fetch successful (not saved to DB).")
+            else:
+                self._queue_error(
+                    "API fetch failed. Please check API connectivity."
+                )
         except Exception as e:
             logger.exception(f"Error during API fetch job (source: {source}).")
             self._queue_error(f"API fetch failed: {e}")
