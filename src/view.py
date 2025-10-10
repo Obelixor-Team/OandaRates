@@ -78,13 +78,15 @@ class HistoryDialog(QDialog):
 
     def __init__(self, instrument_name, history_df, stats, parent=None):
         super().__init__(parent)
+        self.instrument_name = instrument_name # NEW
+        self.history_df = history_df # NEW
         self.setWindowTitle(f"History for {instrument_name}")
 
         layout = QVBoxLayout()
 
         # Stats Layout
         stats_layout = QHBoxLayout()
-        long_stats_text, short_stats_text = self._format_stats_text(stats)
+        long_stats_text, short_stats_text = self._format_stats_text(stats, history_df) # NEW: Pass history_df
 
         long_stats_label = QLabel(long_stats_text)
         short_stats_label = QLabel(short_stats_text)
@@ -98,10 +100,44 @@ class HistoryDialog(QDialog):
             plot_canvas = self._create_plot_canvas(history_df)
             layout.addWidget(plot_canvas)
 
+        # Export Button
+        export_btn = QPushButton("Export to CSV") # NEW
+        export_btn.clicked.connect(self._export_history_to_csv) # NEW
+        layout.addWidget(export_btn) # NEW
+
         self.setLayout(layout)
         self.resize(self.sizeHint())
 
-    def _format_stats_text(self, stats: Dict[str, float]) -> tuple[str, str]:
+    def _export_history_to_csv(self) -> None: # NEW
+        default_filename = f"{self.instrument_name}_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv" # NEW
+        file_path, _ = QFileDialog.getSaveFileName( # NEW
+            self, # NEW
+            "Export History to CSV", # NEW
+            default_filename, # NEW
+            "CSV Files (*.csv);;All Files (*)", # NEW
+        ) # NEW
+        if file_path: # NEW
+            try: # NEW
+                self.history_df.to_csv(file_path, index=False) # NEW
+                # In a dialog, we might not have a status bar, so a message box or log is appropriate
+                logger.info(f"History exported to {file_path}") # NEW
+            except Exception as e: # NEW
+                logger.error(f"Error exporting history to CSV: {e}") # NEW
+        else: # NEW
+            logger.info("History export cancelled.") # NEW
+
+    def _format_stats_text(self, stats: Dict[str, float], history_df: pd.DataFrame) -> tuple[str, str]: # NEW: Add history_df parameter
+        # Add summary info
+        summary_text = f"Data Points: {len(history_df)}\n" # NEW
+        if not history_df.empty: # NEW
+            min_date = history_df["date"].min() # NEW
+            max_date = history_df["date"].max() # NEW
+            summary_text += f"Date Range: {min_date} to {max_date}\n\n" # NEW
+        else: # NEW
+            summary_text += "Date Range: N/A\n\n" # NEW
+
+        long_stats_text = summary_text + "Long Rates:\n" # NEW
+        short_stats_text = summary_text + "Short Rates:\n" # NEW
         """Format statistics into long and short rate text sections.
 
         Args:

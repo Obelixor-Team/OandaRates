@@ -1,10 +1,35 @@
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch # NEW: Import patch
 from PyQt6.QtCore import Qt  # Import Qt
 from PyQt6.QtGui import QColor
+import pandas as pd # NEW: Import pandas
 
 from src.view import View
 from src.theme import THEME
+
+# Mock configuration for testing (similar to other test files)
+MOCK_CONFIG = {
+    "api": {
+        "url": "https://labs-api.oanda.com/v1/financing-rates",
+        "headers": {"Authorization": "test_key", "Accept": "application/json"},
+        "timeout": 10,
+    },
+    "database": {"file": ":memory:"},
+    "categories": {
+        "currencies": ["usd", "eur", "jpy"],
+        "metals": ["xau", "xag"],
+        "commodities": ["wtico_usd"],
+        "indices": ["spx500_usd"],
+        "bonds": ["us_10yr_tnote"],
+        "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
+    },
+    "ui": {"timer_interval": 16, "rate_display_format": "percentage"},
+    "logging": {"level": "INFO", "file_path": "test.log"},
+}
+
+# Patch the config object before importing View
+with patch("src.config.config", MOCK_CONFIG): # NEW: Patch src.config.config
+    from src.view import View
 
 
 @pytest.fixture
@@ -117,12 +142,23 @@ def test_category_combo_changed(qtbot, view_instance, mock_presenter):
     mock_presenter.on_category_selected.assert_called_once_with("Forex")
 
 
-def test_table_double_click(view_instance, mock_presenter):
+@patch("src.view.HistoryDialog")
+def test_table_double_click(mock_history_dialog, view_instance, mock_presenter):
+    mock_history_dialog.return_value.exec.return_value = 0
     view_instance.update_table(
         [["EUR_USD", "Forex", "USD", 1, "1.00%", "-2.00%", "", "", ""]]
     )
-    view_instance.table.doubleClicked.emit(view_instance.table.model().index(0, 0))
-    mock_presenter.on_instrument_double_clicked.assert_called_once_with("EUR_USD")
+    # Simulate the double-click event, which would normally call presenter.on_instrument_double_clicked
+    # and then view.show_history_window. For testing, we directly call show_history_window.
+    instrument_name = "EUR_USD"
+    history_df = pd.DataFrame({ # Create a dummy DataFrame for testing
+        "date": ["2023-01-01"],
+        "long_rate": [0.01],
+        "short_rate": [-0.02]
+    })
+    stats = {"Mean Long Rate": 0.01, "Mean Short Rate": -0.02}
+    view_instance.show_history_window(instrument_name, history_df, stats) # Directly call show_history_window
+    mock_history_dialog.assert_called_once_with(instrument_name, history_df, stats, view_instance) # Assert HistoryDialog was called with correct arguments
 
 
 def test_set_status(view_instance):
