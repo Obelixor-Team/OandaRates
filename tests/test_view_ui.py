@@ -7,16 +7,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QLabel,
 )
-import pytest
-from PyQt6.QtWidgets import (
-    QLineEdit,
-    QComboBox,
-    QPushButton,
-    QTableWidget,
-    QProgressBar,
-    QLabel,
-)
-from unittest.mock import patch # NEW
+from unittest.mock import patch
 
 # Mock configuration for testing
 MOCK_CONFIG = {
@@ -34,47 +25,15 @@ MOCK_CONFIG = {
         "bonds": ["us_10yr_tnote"],
         "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
     },
-    "ui": {"timer_interval": 16, "rate_display_format": "percentage"}, # NEW: Add rate_display_format
+    "ui": {"timer_interval": 16},
     "logging": {"level": "INFO", "file_path": "test.log"},
 }
 
 # Patch the config object before importing Presenter and View
 with patch("src.config.config", MOCK_CONFIG):
-    import pytest
-    from PyQt6.QtWidgets import (
-        QLineEdit,
-        QComboBox,
-        QPushButton,
-        QTableWidget,
-        QProgressBar,
-        QLabel,
-    )
-    from unittest.mock import patch # NEW
-    
-    # Mock configuration for testing
-    MOCK_CONFIG = {
-        "api": {
-            "url": "https://labs-api.oanda.com/v1/financing-rates",
-            "headers": {"Authorization": "test_key", "Accept": "application/json"},
-            "timeout": 10,
-        },
-        "database": {"file": ":memory:"},
-        "categories": {
-            "currencies": ["usd", "eur", "jpy"],
-            "metals": ["xau", "xag"],
-            "commodities": ["wtico_usd"],
-            "indices": ["spx500_usd"],
-            "bonds": ["us_10yr_tnote"],
-            "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
-        },
-        "ui": {"timer_interval": 16, "rate_display_format": "percentage"}, # NEW: Add rate_display_format
-        "logging": {"level": "INFO", "file_path": "test.log"},
-    }
-    
-    # Patch the config object before importing Presenter and View
-    with patch("src.config.config", MOCK_CONFIG):
-        from src.view import View
-        from src.presenter import Presenter
+    from src.view import View
+    from src.presenter import Presenter
+
 
 @pytest.fixture
 def view_instance(qapp):

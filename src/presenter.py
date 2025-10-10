@@ -63,10 +63,10 @@ class Presenter:
     def shutdown(self) -> None:
         """Shuts down the scheduler and thread pool executor gracefully."""
         logger.info("Starting application shutdown...")
-        
+
         # Cancel any ongoing operations
         self._cancellation_event.set()
-        
+
         # Shutdown scheduler
         if self.scheduler:
             try:
@@ -79,11 +79,11 @@ class Presenter:
         # Shutdown thread pool
         self.executor.shutdown(wait=True)
         logger.info("ThreadPoolExecutor shut down.")
-        
+
         # Close model (which disposes database engine)
         self.model.close()
         logger.info("Model cleanup completed.")
-        
+
         logger.info("Application shutdown completed.")
 
     def _queue_error(self, message: str) -> None:
@@ -315,12 +315,21 @@ class Presenter:
         # Convert to DataFrame for easier CSV export
         # Assuming the headers are consistent with the order in _process_rate
         headers = [
-            "Instrument", "Category", "Currency", "Days",
-            "Long Rate", "Short Rate", "Long Charge", "Short Charge", "Units"
+            "Instrument",
+            "Category",
+            "Currency",
+            "Days",
+            "Long Rate",
+            "Short Rate",
+            "Long Charge",
+            "Short Charge",
+            "Units",
         ]
         df = pd.DataFrame(filtered_data_list, columns=headers)
 
-        default_filename = f"oanda_rates_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        default_filename = (
+            f"oanda_rates_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        )
         file_path = self.view.show_save_file_dialog(default_filename)
 
         if file_path:
@@ -332,8 +341,6 @@ class Presenter:
                 self._queue_error(f"Error exporting data: {e}")
         else:
             self._queue_status("Export cancelled.")
-
-
 
     # --- Core Logic (UI-Thread Safe) ---
 
@@ -548,7 +555,9 @@ class Presenter:
         try:
             date, data = self.model.get_latest_rates()
             if data:
-                self.ui_update_queue.put({"type": "initial_data", "payload": (date, data)})
+                self.ui_update_queue.put(
+                    {"type": "initial_data", "payload": (date, data)}
+                )
                 self._queue_status("Data loaded successfully.")
             else:
                 self._fetch_job(source="initial", is_initial=True)
@@ -585,7 +594,9 @@ class Presenter:
                 if new_data:
                     self._queue_status("API fetch successful and saved to database.")
                 else:
-                    self._queue_error("API fetch failed. Please check API connectivity.")
+                    self._queue_error(
+                        "API fetch failed. Please check API connectivity."
+                    )
         except Exception as e:
             logger.exception(f"Error during API fetch job (source: {source}).")
             self._queue_error(f"API fetch failed: {e}")

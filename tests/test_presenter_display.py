@@ -18,7 +18,10 @@ MOCK_CONFIG = {
         "bonds": ["us_10yr_tnote"],
         "currency_suffixes": {"USD": "USD", "EUR": "EUR"},
     },
-    "ui": {"timer_interval": 16, "rate_display_format": "percentage"}, # NEW: Add rate_display_format
+    "ui": {
+        "timer_interval": 16,
+        "rate_display_format": "percentage",
+    },  # NEW: Add rate_display_format
     "logging": {"level": "INFO", "file_path": "test.log"},
 }
 

@@ -8,7 +8,7 @@ import matplotlib.dates as mdates
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
-    QFileDialog, # NEW
+    QFileDialog,  # NEW
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -100,8 +100,6 @@ class HistoryDialog(QDialog):
 
         self.setLayout(layout)
         self.resize(self.sizeHint())
-
-
 
     def _format_stats_text(self, stats: Dict[str, float]) -> tuple[str, str]:
         """Format statistics into long and short rate text sections.
@@ -253,7 +251,7 @@ class View(QMainWindow):
         self.clear_btn.clicked.connect(self._presenter.on_clear_filter)
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
         self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
-        self.export_btn.clicked.connect(self._presenter.on_export_data) # NEW
+        self.export_btn.clicked.connect(self._presenter.on_export_data)  # NEW
 
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
 
@@ -412,7 +410,7 @@ class View(QMainWindow):
         self.setTabOrder(self.category_combo, self.clear_btn)
         self.setTabOrder(self.clear_btn, self.update_btn)
         self.setTabOrder(self.update_btn, self.cancel_btn)
-        self.setTabOrder(self.cancel_btn, self.export_btn) # NEW
+        self.setTabOrder(self.cancel_btn, self.export_btn)  # NEW
         self.setTabOrder(self.export_btn, self.table)
 
     def _on_table_double_click(self, item):
@@ -471,7 +469,7 @@ class View(QMainWindow):
             for col_idx, cell_data in enumerate(row_data):
                 is_numeric = col_idx in NUMERIC_COLUMNS
                 item = self._create_table_item(cell_data, is_numeric)
-                self.table.setItem(row_idx, col_idx, item);
+                self.table.setItem(row_idx, col_idx, item)
 
         self.table.setSortingEnabled(True)
 
@@ -556,7 +554,7 @@ class View(QMainWindow):
             return last_update_date.date() < datetime.now().date()
         except ValueError:
             logger.warning(f"Could not parse last update time: {last_update_text}")
-            return True # Assume stale if parsing fails
+            return True  # Assume stale if parsing fails
 
     def set_update_time(self, text):
         """Set the last update time in the status bar.

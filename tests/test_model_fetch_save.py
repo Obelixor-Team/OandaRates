@@ -3,8 +3,7 @@ from unittest.mock import patch, MagicMock
 from datetime import datetime
 import json
 import requests
-from sqlalchemy import exc, create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import exc  # Keep exc for test_fetch_and_save_rates_db_error
 
 
 # MOCK_CONFIG needs to be defined before Model is imported to ensure consistent patching
@@ -28,7 +27,7 @@ MOCK_CONFIG = {
 # Patch the config object before importing Model
 # This ensures Model uses our mock config for API_URL, HEADERS, DB_FILE
 with patch("src.model.config", MOCK_CONFIG):
-    from src.model import Model, Rate, Base, API_URL
+    from src.model import Model, Rate, API_URL  # Removed Base
 
 
 @pytest.fixture

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, patch # NEW: Import patch
+from unittest.mock import MagicMock, patch  # NEW: Import patch
 from PyQt6.QtCore import Qt  # Import Qt
 from PyQt6.QtGui import QColor
 
@@ -27,7 +27,7 @@ MOCK_CONFIG = {
 }
 
 # Patch the config object before importing View
-with patch("src.config.config", MOCK_CONFIG): # NEW: Patch src.config.config
+with patch("src.config.config", MOCK_CONFIG):  # NEW: Patch src.config.config
     from src.view import View
 
 

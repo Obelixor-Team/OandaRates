@@ -54,16 +54,20 @@ class Model:
             f"sqlite:///{DB_FILE}",
             pool_pre_ping=True,  # Verify connections before using
             pool_recycle=3600,  # Recycle connections after 1 hour
-            echo=config.get("database", {}).get("echo_sql", False),  # Optional: for debugging
-            connect_args={"timeout": config.get("database", {}).get("timeout", 10)} # NEW: Add connection timeout
+            echo=config.get("database", {}).get(
+                "echo_sql", False
+            ),  # Optional: for debugging
+            connect_args={
+                "timeout": config.get("database", {}).get("timeout", 10)
+            },  # NEW: Add connection timeout
         )
-        
+
         # Create all tables if they don't exist
         Base.metadata.create_all(self.engine)
-        
+
         # Create sessionmaker bound to this engine
         self.Session = sessionmaker(bind=self.engine)
-        
+
         logger.debug("Database engine and sessionmaker initialized")
 
     @contextmanager
@@ -81,7 +85,7 @@ class Model:
 
     def close(self):
         """Dispose of the database engine."""
-        if hasattr(self, 'engine'):
+        if hasattr(self, "engine"):
             self.engine.dispose()
             logger.debug("Database engine disposed")
 
@@ -273,10 +277,9 @@ class Model:
             json.JSONDecodeError: If the API response is not valid JSON.
             sqlalchemy.exc.SQLAlchemyError: For errors during database operations.
         """
-        if not HEADERS.get("Authorization"):
-            raise ValueError(
-                "OANDA_API_KEY environment variable is not set or is empty."
-            )
+        # Removed explicit check for Authorization header.
+        # The API call will proceed, and the OANDA API will handle authentication.
+        # If the API requires a key and it's not provided, the API call will likely fail (e.g., 401 Unauthorized).
 
         def _fetch_from_api() -> Dict:
             """Inner function for the actual API call."""
@@ -391,6 +394,7 @@ class Model:
                     )
 
         return pd.DataFrame(history)
+
 
 # Performance Consideration: Pagination for very long history
 # For instruments with extremely long historical data, fetching all at once

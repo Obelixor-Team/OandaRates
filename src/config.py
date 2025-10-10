@@ -89,7 +89,7 @@ DEFAULT_CONFIG = {
     },
     "database": {
         "file": "oanda_rates.db",
-        "timeout": 10, # NEW: Database connection timeout in seconds
+        "timeout": 10,  # NEW: Database connection timeout in seconds
     },
     "categories": {
         "currencies": [
@@ -283,7 +283,7 @@ def validate_config(config: Dict) -> None:
         "api.max_retries",  # NEW
         "api.retry_delay",  # NEW
         "database.file",
-        "database.timeout", # NEW
+        "database.timeout",  # NEW
         "categories.currencies",
         "categories.metals",
         "categories.commodities",
