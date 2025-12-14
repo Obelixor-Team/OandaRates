@@ -45,7 +45,7 @@ The application uses a `config.yaml` file for customization. If not present, it 
 
 ```yaml
 api:
-  url: "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1"
+  url: "https://labs-api.oanda.com"
   timeout: 10
 database:
   file: "oanda_rates.db"
