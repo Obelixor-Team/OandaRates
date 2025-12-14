@@ -554,21 +554,16 @@ class Presenter:
         """Load initial data from DB or API."""
         self._queue_show_progress()
         self._queue_status("Loading latest data from database...")
-        try:
-            date, data = self.model.get_latest_rates()
-            if data:
-                self.ui_update_queue.put(
-                    {"type": "initial_data", "payload": (date, data)}
-                )
-                self._queue_status("Data loaded successfully.")
-            else:
-                # If no data in DB, fetch from API but DO NOT save to DB
-                self._fetch_job(source="initial", is_initial=True, save_to_db_override=False)
-        except Exception as e:
-            logger.exception("Error during initial data load from database.")
-            self._queue_error(f"Failed to load initial data: {e}")
-            self._queue_hide_progress()
-            self._queue_enable_buttons(True)
+        date, data = self.model.get_latest_rates()
+        if data:
+            self.ui_update_queue.put(
+                {"type": "initial_data", "payload": (date, data)}
+            )
+            self._queue_status("Data loaded successfully.")
+        else:
+            # If no data in DB, fetch from API and let _fetch_job handle errors
+            self._fetch_job(source="initial", is_initial=True, save_to_db_override=False)
+            # _fetch_job will queue its own status/error messages
 
     def _fetch_job(self, source: str = "manual", is_initial: bool = False, save_to_db_override: Optional[bool] = None):
         """Fetch new data from the API."""
