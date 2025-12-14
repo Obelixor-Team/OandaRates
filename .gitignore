@@ -34,6 +34,7 @@ GEMINI.md
 
 # Build artifacts
 build/
+dist/
 src/oanda_rates.egg-info/
 
 # Coverage files
