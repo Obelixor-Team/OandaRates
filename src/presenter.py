@@ -342,6 +342,21 @@ class Presenter:
         else:
             self._queue_status("Export cancelled.")
 
+    def on_settings_clicked(self):
+        """Handles the 'Settings' button click event."""
+        current_api_key, current_base_url, current_account_id = self.model.get_api_settings()
+
+        new_settings = self.view.show_settings_dialog(current_api_key, current_base_url, current_account_id)
+        if new_settings:
+            new_api_key, new_base_url, new_account_id = new_settings
+            self.save_settings(new_api_key, new_base_url, new_account_id)
+
+    def save_settings(self, api_key: str, base_url: str, account_id: str):
+        """Saves the new API settings."""
+        self.model.save_api_settings(api_key, base_url, account_id)
+        self._queue_status("Settings saved. Restart the application for changes to take effect.")
+
+
     # --- Core Logic (UI-Thread Safe) ---
 
     def _process_and_cache_data(self, data: RatesData) -> RatesData:  # ⭐ Changed
@@ -600,7 +615,7 @@ class Presenter:
         try:
             self.scheduler = BackgroundScheduler(timezone="America/New_York")
             self.scheduler.add_job(
-                self._scheduled_update_job, "cron", hour=17, minute=30
+                self._scheduled_update_job, "cron", hour=17, minute=30, day_of_week='mon-fri'
             )
             self.scheduler.start()
             logger.info("Scheduler started successfully.")

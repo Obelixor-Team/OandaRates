@@ -11,12 +11,11 @@ import pandas as pd
 import requests
 from sqlalchemy import Column, String, Text, create_engine, exc
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, Mapped, mapped_column
+from PyQt6.QtCore import QSettings
 
 from .config import config
 
 # Constants
-API_URL = config["api"]["url"]
-HEADERS = config["api"]["headers"]
 DB_FILE = config["database"]["file"]
 logger = logging.getLogger(__name__)
 
@@ -49,6 +48,12 @@ class Model:
         It also creates all necessary database tables if they don't already exist
         and initializes a sessionmaker for managing database sessions.
         """
+        # API settings
+        self.base_url: str = ""
+        self.api_key: str = ""
+        self.account_id: str = ""
+        self._load_api_settings()
+
         # Create engine instance specifically for this Model
         self.engine = create_engine(
             f"sqlite:///{DB_FILE}",
@@ -69,6 +74,30 @@ class Model:
         self.Session = sessionmaker(bind=self.engine)
 
         logger.debug("Database engine and sessionmaker initialized")
+
+    def _load_api_settings(self):
+        """Loads API settings from QSettings, falling back to config."""
+        settings = QSettings("OandaRates", "OandaFinancingTerminal")
+        self.base_url = settings.value("base_url", "https://api-fxpractice.oanda.com", type=str)
+        self.api_key = settings.value("api_key", "", type=str)
+        self.account_id = settings.value("account_id", "", type=str)
+        logger.info("API settings loaded.")
+
+    def save_api_settings(self, api_key: str, base_url: str, account_id: str):
+        """Saves API settings to QSettings."""
+        settings = QSettings("OandaRates", "OandaFinancingTerminal")
+        settings.setValue("api_key", api_key)
+        settings.setValue("base_url", base_url)
+        settings.setValue("account_id", account_id)
+        # Update instance variables as well
+        self.api_key = api_key
+        self.base_url = base_url
+        self.account_id = account_id
+        logger.info("API settings saved.")
+
+    def get_api_settings(self) -> tuple[str, str, str]:
+        """Returns the current API key, base URL, and account ID."""
+        return self.api_key, self.base_url, self.account_id
 
     @contextmanager
     def get_session(self):
@@ -255,10 +284,10 @@ class Model:
 
     @log_performance
     def fetch_and_save_rates(self, save_to_db: bool = True) -> Optional[Dict]:
-        """Fetches the latest financing rates from the OANDA API.
+        """Fetches the latest financing rates from the OANDA v20 API.
 
         This method attempts to retrieve financing rate data from the configured
-        OANDA API endpoint. It includes retry logic with exponential backoff
+        OANDA v20 API endpoint. It includes retry logic with exponential backoff
         to handle transient network issues. If successful, the fetched data
         can optionally be saved to the local SQLite database.
 
@@ -270,69 +299,71 @@ class Model:
             Optional[Dict]: A dictionary containing the fetched financing rates
                             if the API call is successful and the response is valid,
                             otherwise None.
-
-        Raises:
-            ValueError: If the OANDA API key is not configured.
-            requests.exceptions.RequestException: For network-related errors during API calls.
-            json.JSONDecodeError: If the API response is not valid JSON.
-            sqlalchemy.exc.SQLAlchemyError: For errors during database operations.
         """
-        # Removed explicit check for Authorization header.
-        # The API call will proceed, and the OANDA API will handle authentication.
-        # If the API requires a key and it's not provided, the API call will likely fail (e.g., 401 Unauthorized).
+        if not self.account_id or not self.api_key:
+            raise ValueError("OANDA Account ID and API Key must be configured.")
 
         def _fetch_from_api() -> Dict:
             """Inner function for the actual API call."""
-            # Security Recommendation: SSL certificate verification is enabled by default in requests.
-            # Ensure that the API_URL uses HTTPS for secure communication.
-            response = requests.get(  # nosec B113
-                API_URL,
-                headers=HEADERS,
+            api_url = f"{self.base_url}/v3/accounts/{self.account_id}/instruments"
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
+            response = requests.get(
+                api_url,
+                headers=headers,
                 timeout=config.get("api", {}).get("timeout", 10),
             )
             response.raise_for_status()
             return response.json()
 
         try:
-            # Use retry logic for API call
             data = self._retry_with_backoff(_fetch_from_api)
 
-            if data is None:
+            if data is None or "instruments" not in data:
+                logger.warning("API response did not contain 'instruments' key.")
                 return None
 
-            # Security Recommendation: Validate API response structure and content.
-            # Current check ensures 'financingRates' key exists. Further validation
-            # could involve checking types/formats of individual rate fields.
-            if "financingRates" not in data:
-                logger.warning("API response did not contain 'financingRates' key.")
-                return None
+            # Transform the v20 response to the old format
+            financing_rates = []
+            for instrument in data["instruments"]:
+                if "financing" in instrument:
+                    financing_rates.append({
+                        "instrument": instrument.get("name"),
+                        "longRate": instrument["financing"].get("longRate"),
+                        "shortRate": instrument["financing"].get("shortRate"),
+                        "currency": instrument.get("quoteCurrency"),
+                        "days": instrument.get("financingDaysOfWeek"), # This is not available in v20, so it will be None
+                        "longCharge": None, # Not available in v20
+                        "shortCharge": None, # Not available in v20
+                        "units": None, # Not available in v20
+                    })
+            
+            transformed_data = {"financingRates": financing_rates}
 
-            # Security Recommendation: Consider rate limiting for API calls to prevent abuse
-            # and adhere to API provider policies. This could be implemented here or
-            # within the _retry_with_backoff mechanism.
 
             if save_to_db:
                 try:
                     with self.get_session() as session:
                         today = datetime.now().strftime("%Y-%m-%d")
                         existing = session.query(Rate).filter_by(date=today).first()
-                        raw_data_str = json.dumps(data)
+                        raw_data_str = json.dumps(transformed_data)
                         if existing:
                             existing.raw_data = raw_data_str
                         else:
                             new_rate = Rate(date=today, raw_data=raw_data_str)
                             session.add(new_rate)
-                    # Cache clear AFTER context manager closes
                     self.get_instrument_history.cache_clear()
                 except exc.SQLAlchemyError as e:
                     logger.error(f"Database error occurred: {e}")
                     logger.info("Database session rolled back.")
                     return None
 
-            return data
+            return transformed_data
 
-        except ValueError as e:
-            logger.error(f"Failed to parse API response: {e}")
+        except (ValueError, requests.exceptions.RequestException, json.JSONDecodeError) as e:
+            logger.error(f"Failed to fetch or parse API response: {e}")
             return None
 
     def get_latest_rates(self) -> tuple[Optional[str], Optional[Dict[str, Any]]]:

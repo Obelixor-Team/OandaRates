@@ -1,3 +1,4 @@
+import sys # Add this import
 import yaml
 from typing import Dict
 import logging
@@ -77,11 +78,11 @@ def setup_logging():
 #     - file_path (str): Path to the log file.
 DEFAULT_CONFIG = {
     "api": {
-        "url": "https://labs-api.oanda.com/v1/financing-rates?divisionId=4&tradingGroupId=1",
+        "url": "https://api-fxpractice.oanda.com",
+        "account_id": "",
         "headers": {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
-            "Authorization": os.getenv("OANDA_API_KEY", ""),
         },
         "timeout": 10,
         "max_retries": 3,  # NEW
@@ -278,6 +279,7 @@ def validate_config(config: Dict) -> None:
     """
     required_keys = [
         "api.url",
+        "api.account_id",
         "api.headers",
         "api.timeout",
         "api.max_retries",  # NEW
@@ -320,12 +322,6 @@ def validate_config(config: Dict) -> None:
 
     _validate_config_types(config)  # Call type validation
 
-    # NEW: API Key Validation
-    if not config["api"]["headers"].get("Authorization"):
-        logging.warning(
-            "OANDA_API_KEY environment variable not set. API features may be disabled or fail."
-        )
-
 
 def _deep_merge(base, new):
     """Recursively merges two dictionaries."""
@@ -337,8 +333,14 @@ def _deep_merge(base, new):
 
 
 def load_config() -> Dict:
+    config_path = "config.yaml"
+    if getattr(sys, 'frozen', False):
+        # Running in a frozen application (e.g., cx_Freeze)
+        bundle_dir = os.path.dirname(sys.executable)
+        config_path = os.path.join(bundle_dir, "config.yaml")
+
     try:
-        with open("config.yaml", "r") as f:
+        with open(config_path, "r") as f:
             config_from_file = yaml.safe_load(f) or {}
             # Merge with default config to ensure all keys are present
             merged_config = DEFAULT_CONFIG.copy()

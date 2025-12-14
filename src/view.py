@@ -169,6 +169,54 @@ class HistoryDialog(QDialog):
         return sc
 
 
+# --- Settings Dialog ---
+class SettingsDialog(QDialog):
+    """Dialog for application settings, e.g., API key and URL."""
+
+    def __init__(self, current_api_key: str, current_base_url: str, current_account_id: str, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        layout = QVBoxLayout()
+
+        self.api_key_input = QLineEdit()
+        self.api_key_input.setPlaceholderText("Enter your OANDA API Key")
+        self.api_key_input.setText(current_api_key)
+        self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password) # Mask API key
+
+        self.base_url_input = QLineEdit()
+        self.base_url_input.setPlaceholderText("Enter OANDA API Base URL")
+        self.base_url_input.setText(current_base_url)
+
+        self.account_id_input = QLineEdit()
+        self.account_id_input.setPlaceholderText("Enter your OANDA Account ID")
+        self.account_id_input.setText(current_account_id)
+
+        layout.addWidget(QLabel("OANDA API Key:"))
+        layout.addWidget(self.api_key_input)
+        layout.addWidget(QLabel("OANDA API Base URL (e.g., https://api-fxpractice.oanda.com):"))
+        layout.addWidget(self.base_url_input)
+        layout.addWidget(QLabel("OANDA Account ID:"))
+        layout.addWidget(self.account_id_input)
+
+        # Buttons
+        button_layout = QHBoxLayout()
+        self.save_btn = QPushButton("Save")
+        self.cancel_btn = QPushButton("Cancel")
+        button_layout.addWidget(self.save_btn)
+        button_layout.addWidget(self.cancel_btn)
+
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+
+        # Connect signals
+        self.save_btn.clicked.connect(self.accept)
+        self.cancel_btn.clicked.connect(self.reject)
+
+    def get_settings(self) -> tuple[str, str, str]:
+        """Returns the entered API key, base URL, and account ID."""
+        return self.api_key_input.text(), self.base_url_input.text(), self.account_id_input.text()
+
+
 # --- Main View ---
 class View(QMainWindow):
     """Main application window for displaying OANDA financing rates."""
@@ -252,8 +300,16 @@ class View(QMainWindow):
         self.update_btn.clicked.connect(self._presenter.on_manual_update)
         self.cancel_btn.clicked.connect(self._presenter.on_cancel_update)
         self.export_btn.clicked.connect(self._presenter.on_export_data)  # NEW
+        self.settings_btn.clicked.connect(self._presenter.on_settings_clicked)
 
         self.table.itemDoubleClicked.connect(self._on_table_double_click)
+
+    def show_settings_dialog(self, current_api_key: str, current_base_url: str, current_account_id: str) -> Optional[tuple[str, str, str]]:
+        """Opens the settings dialog and returns the new settings if saved."""
+        dialog = SettingsDialog(current_api_key, current_base_url, current_account_id, self)
+        if dialog.exec():  # exec() returns 1 (Accepted) or 0 (Rejected)
+            return dialog.get_settings()
+        return None
 
     def set_update_buttons_enabled(self, enabled: bool):
         """Enables or disables the update and cancel buttons.
@@ -346,6 +402,12 @@ class View(QMainWindow):
         )
         self.cancel_btn.setEnabled(False)  # Initially disabled
 
+        self.settings_btn = QPushButton("Settings")
+        self.settings_btn.setAccessibleName("Settings Button")
+        self.settings_btn.setAccessibleDescription(
+            "Opens the settings dialog to configure the API key and URL."
+        )
+
         self.table = QTableWidget()
         self.table.setColumnCount(9)
         headers = [
@@ -394,6 +456,7 @@ class View(QMainWindow):
         control_layout.addWidget(self.clear_btn)
         control_layout.addWidget(self.update_btn)
         control_layout.addWidget(self.cancel_btn)
+        control_layout.addWidget(self.settings_btn)
 
         self.export_btn = QPushButton("Export to CSV")
         self.export_btn.setAccessibleName("Export to CSV Button")
@@ -410,7 +473,8 @@ class View(QMainWindow):
         self.setTabOrder(self.category_combo, self.clear_btn)
         self.setTabOrder(self.clear_btn, self.update_btn)
         self.setTabOrder(self.update_btn, self.cancel_btn)
-        self.setTabOrder(self.cancel_btn, self.export_btn)  # NEW
+        self.setTabOrder(self.cancel_btn, self.settings_btn)
+        self.setTabOrder(self.settings_btn, self.export_btn)
         self.setTabOrder(self.export_btn, self.table)
 
     def _on_table_double_click(self, item):

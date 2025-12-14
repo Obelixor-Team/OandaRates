@@ -75,8 +75,8 @@ if __name__ == "__main__":
         logger.info(f"Application exiting with code {e.code}.")
         # Allow SystemExit to propagate with its code
         raise
-    except Exception:
-        logger.exception("Unhandled exception occurred. Application will terminate.")
+    except Exception as e:
+        logger.exception(f"Unhandled exception occurred: {e}. Application will terminate.")
         sys.exit(1)
     finally:
         if presenter_instance:
