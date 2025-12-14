@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, TypedDict, TypeAlias
 from concurrent.futures import ThreadPoolExecutor
 
 import pandas as pd
+import requests # Added this import
 from apscheduler.schedulers.background import BackgroundScheduler  # type: ignore
 
 from .performance import log_performance
@@ -599,6 +600,20 @@ class Presenter:
                 self._queue_error(
                     "API fetch failed. Please check API connectivity."
                 )
+        except ValueError as e:
+            if "OANDA Account ID and API Key must be configured." in str(e):
+                self._queue_error("OANDA Account ID and API Key are not configured. Please set them in Settings.")
+            else:
+                self._queue_error(f"Configuration Error: {e}")
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 401:
+                self._queue_error("Authentication failed. Please check your API Key.")
+            elif e.response.status_code == 404:
+                self._queue_error("Invalid API endpoint or Account ID. Please check your settings.")
+            else:
+                self._queue_error(f"API fetch failed with status code: {e.response.status_code}")
+        except requests.exceptions.RequestException:
+            self._queue_error("Could not connect to OANDA. Please check your internet connection.")
         except Exception as e:
             logger.exception(f"Error during API fetch job (source: {source}).")
             self._queue_error(f"API fetch failed: {e}")
