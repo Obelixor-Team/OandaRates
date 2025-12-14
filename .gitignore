@@ -9,6 +9,7 @@ ENV/
 env/
 
 # Python cache & compiled files
+.mypy_cache/
 __pycache__/
 *.pyc
 *.pyo
@@ -17,6 +18,9 @@ __pycache__/
 # Test related files
 tests/__pycache__/
 tests/.pytest_cache/
+
+# Ruff cache
+.ruff_cache/
 
 # Database files
 *.db
