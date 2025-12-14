@@ -133,7 +133,7 @@ class Model:
         func: Callable,
         max_retries: int = 3,
         initial_delay: float = 1.0,
-    ) -> Dict:
+    ) -> Optional[Dict]:
         """Retry a function with exponential backoff.
 
         Args:
@@ -142,7 +142,7 @@ class Model:
             initial_delay: Initial delay in seconds (doubles each retry)
 
         Returns:
-            Result from func
+            Result from func or None if all retries failed
         
         Raises:
             requests.exceptions.RequestException: If all retries fail.
@@ -165,6 +165,7 @@ class Model:
                         f"API request failed after {max_retries} attempts: {e}"
                     )
                     raise e
+        return None
 
     def _query_all_rates_ordered(self, ascending: bool = True) -> list[Dict[str, Any]]:
         """Queries all stored financing rates from the database, ordered by date.

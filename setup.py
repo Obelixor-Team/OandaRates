@@ -1,5 +1,4 @@
 import sys
-import os
 from cx_Freeze import setup, Executable
 
 # Dependencies are automatically detected, but it might be needed to fine-tune them.
